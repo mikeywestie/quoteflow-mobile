@@ -1,17 +1,24 @@
-# QuoteFlow
+# QuoteFlow Mobile
 
-Mobile-first quotation platform for field service businesses.
+QuoteFlow is a mobile-first quotation builder for field service businesses.
 
-## Stack
+Technicians can manage products, customers, and create VAT-inclusive quotations directly from an Android phone.
+
+## Current MVP
+
 - Kotlin
 - Jetpack Compose
 - Material 3
 - Room Database
-- MVVM
+- Products CRUD
+- Customers CRUD
+- Saved quotes foundation
+- Quote number format: `QF-2026-00001`
 
-## Roadmap
-- Product Management
-- Customer Management
-- Quote Builder
-- PDF Export
-- Cloud Sync
+## Package
+
+`com.mikeywestie.quoteflow`
+
+## Run
+
+Open this folder in Android Studio, allow Gradle to sync, then run the `app` module.
