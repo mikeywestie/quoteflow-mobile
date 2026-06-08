@@ -18,9 +18,6 @@ class QuoteFlowRepository(
     private val quoteDao: QuoteDao,
     private val companySettingsDao: CompanySettingsDao
 ) {
-
-    // Products
-
     fun products(query: String): Flow<List<Product>> =
         productDao.searchProducts(query)
 
@@ -29,8 +26,6 @@ class QuoteFlowRepository(
 
     suspend fun deleteProduct(product: Product) =
         productDao.delete(product)
-
-    // Customers
 
     fun customers(query: String): Flow<List<Customer>> =
         customerDao.searchCustomers(query)
@@ -41,8 +36,6 @@ class QuoteFlowRepository(
     suspend fun deleteCustomer(customer: Customer) =
         customerDao.delete(customer)
 
-    // Quotes
-
     fun quotes(): Flow<List<Quote>> =
         quoteDao.getQuotes()
 
@@ -50,11 +43,9 @@ class QuoteFlowRepository(
         quoteDao.getQuoteItems(quoteId)
 
     suspend fun createDraftQuote(customerId: Long): Long {
-        val number = nextQuoteNumber()
-
         return quoteDao.saveQuote(
             Quote(
-                quoteNumber = number,
+                quoteNumber = nextQuoteNumber(),
                 customerId = customerId
             )
         )
@@ -65,7 +56,6 @@ class QuoteFlowRepository(
         notes: String,
         items: List<QuoteItem>
     ): Long {
-
         val total = items.sumOf { it.lineTotal }
 
         val quoteId = quoteDao.saveQuote(
@@ -78,15 +68,48 @@ class QuoteFlowRepository(
         )
 
         quoteDao.saveItems(
-            items.map {
-                it.copy(
-                    id = 0,
-                    quoteId = quoteId
-                )
+            items.map { item ->
+                item.copy(id = 0, quoteId = quoteId)
             }
         )
 
         return quoteId
+    }
+
+    suspend fun updateQuoteStatusAndNotes(
+        quoteId: Long,
+        status: String,
+        notes: String
+    ) {
+        val quote = quoteDao.getQuoteById(quoteId) ?: return
+
+        quoteDao.saveQuote(
+            quote.copy(
+                status = status,
+                notes = notes
+            )
+        )
+    }
+
+    suspend fun addQuoteItem(item: QuoteItem): Long {
+        val itemId = quoteDao.saveItem(item)
+        recalculateQuoteTotal(item.quoteId)
+        return itemId
+    }
+
+    suspend fun deleteQuoteItem(item: QuoteItem) {
+        quoteDao.deleteItem(item)
+        recalculateQuoteTotal(item.quoteId)
+    }
+
+    private suspend fun recalculateQuoteTotal(quoteId: Long) {
+        val quote = quoteDao.getQuoteById(quoteId) ?: return
+        val items = quoteDao.getQuoteItemsOnce(quoteId)
+        val total = items.sumOf { it.lineTotal }
+
+        quoteDao.saveQuote(
+            quote.copy(totalAmount = total)
+        )
     }
 
     private suspend fun nextQuoteNumber(): String {
@@ -94,14 +117,10 @@ class QuoteFlowRepository(
         return "QF-${Year.now().value}-${next.toString().padStart(5, '0')}"
     }
 
-    // Company Settings
-
     fun companySettings(): Flow<CompanySettings?> =
         companySettingsDao.getSettings()
 
-    suspend fun saveCompanySettings(
-        settings: CompanySettings
-    ) {
+    suspend fun saveCompanySettings(settings: CompanySettings) {
         companySettingsDao.save(settings)
     }
 }
