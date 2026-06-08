@@ -5,12 +5,14 @@ import com.mikeywestie.quoteflow.data.local.dao.CustomerDao
 import com.mikeywestie.quoteflow.data.local.dao.ProductDao
 import com.mikeywestie.quoteflow.data.local.dao.QuoteDao
 import com.mikeywestie.quoteflow.data.local.dao.QuoteTemplateDao
+import com.mikeywestie.quoteflow.data.local.dao.TemplateItemDao
 import com.mikeywestie.quoteflow.data.local.entity.CompanySettings
 import com.mikeywestie.quoteflow.data.local.entity.Customer
 import com.mikeywestie.quoteflow.data.local.entity.Product
 import com.mikeywestie.quoteflow.data.local.entity.Quote
 import com.mikeywestie.quoteflow.data.local.entity.QuoteItem
 import com.mikeywestie.quoteflow.data.local.entity.QuoteTemplate
+import com.mikeywestie.quoteflow.data.local.entity.TemplateItem
 import kotlinx.coroutines.flow.Flow
 import java.time.Year
 
@@ -19,7 +21,8 @@ class QuoteFlowRepository(
     private val customerDao: CustomerDao,
     private val quoteDao: QuoteDao,
     private val companySettingsDao: CompanySettingsDao,
-    private val quoteTemplateDao: QuoteTemplateDao
+    private val quoteTemplateDao: QuoteTemplateDao,
+    private val templateItemDao: TemplateItemDao
 ) {
     fun products(query: String): Flow<List<Product>> =
         productDao.searchProducts(query)
@@ -182,5 +185,26 @@ class QuoteFlowRepository(
     suspend fun importTemplates(templates: List<QuoteTemplate>): Int {
         quoteTemplateDao.saveAll(templates)
         return templates.size
+    }
+
+    fun templateItems(templateId: Long): Flow<List<TemplateItem>> =
+        templateItemDao.getTemplateItems(templateId)
+
+    suspend fun addProductToTemplate(
+        templateId: Long,
+        productId: Long,
+        quantity: Double
+    ) {
+        templateItemDao.save(
+            TemplateItem(
+                templateId = templateId,
+                productId = productId,
+                quantity = quantity
+            )
+        )
+    }
+
+    suspend fun deleteTemplateItem(item: TemplateItem) {
+        templateItemDao.delete(item)
     }
 }
