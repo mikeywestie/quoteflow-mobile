@@ -5,6 +5,8 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
@@ -15,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.mikeywestie.quoteflow.data.local.entity.Customer
+import com.mikeywestie.quoteflow.data.local.entity.Product
 import com.mikeywestie.quoteflow.data.local.entity.QuoteItem
 import com.mikeywestie.quoteflow.data.repository.QuoteFlowRepository
 import com.mikeywestie.quoteflow.pdf.QuotePdfGenerator
@@ -48,10 +52,10 @@ fun QuoteDetailsScreen(
 
     var showEditDialog by remember { mutableStateOf(false) }
     var showAddItemDialog by remember { mutableStateOf(false) }
+    var editingItem by remember { mutableStateOf<QuoteItem?>(null) }
 
-    fun formatDate(timestamp: Long): String {
-        return SimpleDateFormat("dd MMMM yyyy", Locale.getDefault()).format(Date(timestamp))
-    }
+    fun formatDate(timestamp: Long): String =
+        SimpleDateFormat("dd MMMM yyyy", Locale.getDefault()).format(Date(timestamp))
 
     fun validUntil(timestamp: Long): String {
         val thirtyDays = TimeUnit.DAYS.toMillis(30)
@@ -106,11 +110,7 @@ fun QuoteDetailsScreen(
         try {
             context.startActivity(intent)
         } catch (ex: ActivityNotFoundException) {
-            Toast.makeText(
-                context,
-                "No PDF viewer found. File saved to Documents/QuoteFlow.",
-                Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(context, "No PDF viewer found.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -133,11 +133,7 @@ fun QuoteDetailsScreen(
         try {
             context.startActivity(Intent.createChooser(intent, "Share"))
         } catch (ex: ActivityNotFoundException) {
-            Toast.makeText(
-                context,
-                "No app found to share this PDF.",
-                Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(context, "No app found to share this PDF.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -182,7 +178,6 @@ fun QuoteDetailsScreen(
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
                     )
-
                     Text("Status: ${quote.status}")
                     Text("Date Issued: ${formatDate(quote.createdAt)}")
                     Text("Valid Until: ${validUntil(quote.createdAt)}")
@@ -192,14 +187,8 @@ fun QuoteDetailsScreen(
                     Text("Customer", fontWeight = FontWeight.Bold)
                     Divider()
                     Text(customer?.customerName ?: "Unknown customer")
-
-                    if (!customer?.phone.isNullOrBlank()) {
-                        Text(customer?.phone.orEmpty())
-                    }
-
-                    if (!customer?.email.isNullOrBlank()) {
-                        Text(customer?.email.orEmpty())
-                    }
+                    if (!customer?.phone.isNullOrBlank()) Text(customer?.phone.orEmpty())
+                    if (!customer?.email.isNullOrBlank()) Text(customer?.email.orEmpty())
                 }
 
                 item {
@@ -228,19 +217,25 @@ fun QuoteDetailsScreen(
                                 Text("Unit Price: ${item.unitPrice.toRand()}")
                                 Text("Line Total: ${item.lineTotal.toRand()}")
 
-                                TextButton(
-                                    onClick = {
-                                        scope.launch {
-                                            repository.deleteQuoteItem(item)
-                                            Toast.makeText(
-                                                context,
-                                                "Item removed",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
+                                Row {
+                                    TextButton(onClick = { editingItem = item }) {
+                                        Text("Edit Item")
                                     }
-                                ) {
-                                    Text("Delete Item")
+
+                                    TextButton(
+                                        onClick = {
+                                            scope.launch {
+                                                repository.deleteQuoteItem(item)
+                                                Toast.makeText(
+                                                    context,
+                                                    "Item removed",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        }
+                                    ) {
+                                        Text("Delete Item")
+                                    }
                                 }
                             }
                         }
@@ -257,7 +252,6 @@ fun QuoteDetailsScreen(
 
                 item {
                     Divider()
-
                     Spacer(Modifier.height(8.dp))
 
                     Text(
@@ -273,7 +267,6 @@ fun QuoteDetailsScreen(
                     Button(
                         onClick = {
                             val pdfFile = generatePdf()
-
                             if (pdfFile != null) {
                                 Toast.makeText(
                                     context,
@@ -307,13 +300,16 @@ fun QuoteDetailsScreen(
 
     if (quote != null && showEditDialog) {
         EditQuoteDialog(
+            customers = customers.value,
+            currentCustomerId = quote.customerId,
             currentStatus = quote.status,
             currentNotes = quote.notes,
             onDismiss = { showEditDialog = false },
-            onSave = { status, notes ->
+            onSave = { customerId, status, notes ->
                 scope.launch {
-                    repository.updateQuoteStatusAndNotes(
+                    repository.updateQuoteStatusNotesAndCustomer(
                         quoteId = quote.id,
+                        customerId = customerId,
                         status = status,
                         notes = notes
                     )
@@ -338,30 +334,86 @@ fun QuoteDetailsScreen(
             }
         )
     }
+
+    if (editingItem != null) {
+        EditQuoteItemDialog(
+            item = editingItem!!,
+            onDismiss = { editingItem = null },
+            onSave = { updated ->
+                scope.launch {
+                    repository.updateQuoteItem(updated)
+                    editingItem = null
+                    Toast.makeText(context, "Item updated", Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditQuoteDialog(
+    customers: List<Customer>,
+    currentCustomerId: Long,
     currentStatus: String,
     currentNotes: String,
     onDismiss: () -> Unit,
-    onSave: (String, String) -> Unit
+    onSave: (Long, String, String) -> Unit
 ) {
     val statuses = listOf("Draft", "Sent", "Accepted", "Rejected", "Paid")
 
+    var selectedCustomerId by remember(currentCustomerId) { mutableStateOf(currentCustomerId) }
     var selectedStatus by remember(currentStatus) { mutableStateOf(currentStatus) }
     var notes by remember(currentNotes) { mutableStateOf(currentNotes) }
-    var expanded by remember { mutableStateOf(false) }
+
+    var customerExpanded by remember { mutableStateOf(false) }
+    var statusExpanded by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Quote") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 500.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = !expanded }
+                    expanded = customerExpanded,
+                    onExpandedChange = { customerExpanded = !customerExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = customers.firstOrNull { it.id == selectedCustomerId }?.customerName
+                            ?: "Unknown customer",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Customer") },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = customerExpanded,
+                        onDismissRequest = { customerExpanded = false }
+                    ) {
+                        customers.forEach { customer ->
+                            DropdownMenuItem(
+                                text = { Text(customer.customerName) },
+                                onClick = {
+                                    selectedCustomerId = customer.id
+                                    customerExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                ExposedDropdownMenuBox(
+                    expanded = statusExpanded,
+                    onExpandedChange = { statusExpanded = !statusExpanded }
                 ) {
                     OutlinedTextField(
                         value = selectedStatus,
@@ -374,15 +426,15 @@ private fun EditQuoteDialog(
                     )
 
                     ExposedDropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
+                        expanded = statusExpanded,
+                        onDismissRequest = { statusExpanded = false }
                     ) {
                         statuses.forEach { status ->
                             DropdownMenuItem(
                                 text = { Text(status) },
                                 onClick = {
                                     selectedStatus = status
-                                    expanded = false
+                                    statusExpanded = false
                                 }
                             )
                         }
@@ -399,7 +451,77 @@ private fun EditQuoteDialog(
             }
         },
         confirmButton = {
-            Button(onClick = { onSave(selectedStatus, notes) }) {
+            Button(onClick = { onSave(selectedCustomerId, selectedStatus, notes) }) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+private fun EditQuoteItemDialog(
+    item: QuoteItem,
+    onDismiss: () -> Unit,
+    onSave: (QuoteItem) -> Unit
+) {
+    var itemName by remember(item.id) { mutableStateOf(item.itemName) }
+    var quantityText by remember(item.id) { mutableStateOf(item.quantity.cleanQuantity()) }
+    var priceText by remember(item.id) { mutableStateOf(item.unitPrice.toString()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Item") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 500.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = itemName,
+                    onValueChange = { itemName = it },
+                    label = { Text("Description") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = quantityText,
+                    onValueChange = { quantityText = it },
+                    label = { Text("Quantity") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = priceText,
+                    onValueChange = { priceText = it },
+                    label = { Text("Unit Price") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val quantity = quantityText.toDoubleOrNull() ?: item.quantity
+                    val price = priceText.toDoubleOrNull() ?: item.unitPrice
+
+                    onSave(
+                        item.copy(
+                            itemName = itemName,
+                            quantity = quantity,
+                            unitPrice = price,
+                            lineTotal = quantity * price
+                        )
+                    )
+                }
+            ) {
                 Text("Save")
             }
         },
@@ -414,7 +536,7 @@ private fun EditQuoteDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddQuoteItemDialog(
-    products: List<com.mikeywestie.quoteflow.data.local.entity.Product>,
+    products: List<Product>,
     quoteId: Long,
     onDismiss: () -> Unit,
     onSave: (QuoteItem) -> Unit
@@ -426,11 +548,20 @@ private fun AddQuoteItemDialog(
     var customItemName by remember { mutableStateOf("") }
     var customPriceText by remember { mutableStateOf("") }
 
+    var labourDescription by remember { mutableStateOf("") }
+    var labourPriceText by remember { mutableStateOf("") }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Item") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 500.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 Text("Existing product", fontWeight = FontWeight.Bold)
 
                 if (products.isEmpty()) {
@@ -535,6 +666,46 @@ private fun AddQuoteItemDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Add Custom Item")
+                }
+
+                Divider()
+
+                Text("Labour", fontWeight = FontWeight.Bold)
+
+                OutlinedTextField(
+                    value = labourDescription,
+                    onValueChange = { labourDescription = it },
+                    label = { Text("Labour description") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = labourPriceText,
+                    onValueChange = { labourPriceText = it },
+                    label = { Text("Labour charge") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Button(
+                    onClick = {
+                        val price = labourPriceText.toDoubleOrNull() ?: 0.0
+
+                        if (labourDescription.isNotBlank() && price > 0.0) {
+                            onSave(
+                                QuoteItem(
+                                    quoteId = quoteId,
+                                    productId = null,
+                                    itemName = "Labour: $labourDescription",
+                                    quantity = 1.0,
+                                    unitPrice = price,
+                                    lineTotal = price
+                                )
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Add Labour")
                 }
             }
         },
