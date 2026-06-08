@@ -1,47 +1,127 @@
 package com.mikeywestie.quoteflow.feature.dashboard
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.mikeywestie.quoteflow.data.repository.QuoteFlowRepository
 import com.mikeywestie.quoteflow.navigation.Routes
+import com.mikeywestie.quoteflow.util.toRand
 
 @Composable
-fun DashboardScreen(navController: NavController) {
+fun DashboardScreen(
+    repository: QuoteFlowRepository,
+    navController: NavController
+) {
+    val products = repository.products("").collectAsStateWithLifecycle(initialValue = emptyList())
+    val customers = repository.customers("").collectAsStateWithLifecycle(initialValue = emptyList())
+    val quotes = repository.quotes().collectAsStateWithLifecycle(initialValue = emptyList())
+
     Scaffold { padding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(24.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text("QuoteFlow", fontSize = 34.sp, fontWeight = FontWeight.Bold)
-            Text("Mobile quotation builder", style = MaterialTheme.typography.bodyLarge)
-
-            Spacer(Modifier.height(32.dp))
-
-            DashboardButton("New Quote / Saved Quotes") {
-                navController.navigate(Routes.QUOTES)
+            item {
+                Text("QuoteFlow", fontSize = 34.sp, fontWeight = FontWeight.Bold)
+                Text("Mobile quotation builder", style = MaterialTheme.typography.bodyLarge)
             }
 
-            DashboardButton("Products") {
-                navController.navigate(Routes.PRODUCTS)
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    DashboardMetricCard(
+                        title = "Products",
+                        value = products.value.size.toString(),
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    DashboardMetricCard(
+                        title = "Customers",
+                        value = customers.value.size.toString(),
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    DashboardMetricCard(
+                        title = "Quotes",
+                        value = quotes.value.size.toString(),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
 
-            DashboardButton("Customers") {
-                navController.navigate(Routes.CUSTOMERS)
+            item {
+                DashboardButton("New Quote / Saved Quotes") {
+                    navController.navigate(Routes.QUOTES)
+                }
+
+                DashboardButton("Products") {
+                    navController.navigate(Routes.PRODUCTS)
+                }
+
+                DashboardButton("Customers") {
+                    navController.navigate(Routes.CUSTOMERS)
+                }
+
+                DashboardButton("Settings") {
+                    navController.navigate(Routes.SETTINGS)
+                }
             }
 
-            DashboardButton("Settings") {
-                navController.navigate(Routes.SETTINGS)
+            item {
+                Text("Recent Quotes", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
+
+            if (quotes.value.isEmpty()) {
+                item {
+                    Text("No quotes yet.")
+                }
+            } else {
+                items(quotes.value.take(5)) { quote ->
+                    val customerName = customers.value
+                        .firstOrNull { it.id == quote.customerId }
+                        ?.customerName
+                        ?: "Unknown customer"
+
+                    Card(
+                        onClick = { navController.navigate(Routes.quoteDetails(quote.id)) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(Modifier.padding(14.dp)) {
+                            Text(quote.quoteNumber, fontWeight = FontWeight.Bold)
+                            Text(customerName)
+                            Text("Status: ${quote.status}")
+                            Text("Total: ${quote.totalAmount.toRand()}")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashboardMetricCard(
+    title: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Card(modifier = modifier) {
+        Column(Modifier.padding(12.dp)) {
+            Text(title, style = MaterialTheme.typography.bodySmall)
+            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -52,8 +132,8 @@ private fun DashboardButton(text: String, onClick: () -> Unit) {
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .height(56.dp)
+            .padding(vertical = 5.dp)
+            .height(52.dp)
     ) {
         Text(text)
     }

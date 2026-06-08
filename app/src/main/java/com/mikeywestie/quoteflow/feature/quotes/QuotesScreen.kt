@@ -15,9 +15,9 @@ import com.mikeywestie.quoteflow.data.local.entity.Customer
 import com.mikeywestie.quoteflow.data.local.entity.Product
 import com.mikeywestie.quoteflow.data.local.entity.QuoteItem
 import com.mikeywestie.quoteflow.data.repository.QuoteFlowRepository
+import com.mikeywestie.quoteflow.navigation.Routes
 import com.mikeywestie.quoteflow.util.toRand
 import kotlinx.coroutines.launch
-import com.mikeywestie.quoteflow.navigation.Routes
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,16 +67,37 @@ fun QuotesScreen(repository: QuoteFlowRepository, navController: NavController) 
                         ?: "Unknown customer"
 
                     Card(
-    onClick = {
-        navController.navigate(Routes.quoteDetails(quote.id))
-    },
-    modifier = Modifier.fillMaxWidth()
-) {
+                        onClick = {
+                            navController.navigate(Routes.quoteDetails(quote.id))
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Column(Modifier.padding(16.dp)) {
-                            Text(quote.quoteNumber, fontWeight = FontWeight.Bold)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(quote.quoteNumber, fontWeight = FontWeight.Bold)
+                                StatusChip(quote.status)
+                            }
+
+                            Spacer(Modifier.height(6.dp))
+
                             Text(customerName)
-                            Text("Status: ${quote.status}")
                             Text("Total: ${quote.totalAmount.toRand()}")
+
+                            TextButton(
+                                onClick = {
+                                    scope.launch {
+                                        val newQuoteId = repository.duplicateQuote(quote.id)
+                                        if (newQuoteId != null) {
+                                            navController.navigate(Routes.quoteDetails(newQuoteId))
+                                        }
+                                    }
+                                }
+                            ) {
+                                Text("Duplicate Quote")
+                            }
                         }
                     }
                 }
@@ -102,17 +123,26 @@ fun QuotesScreen(repository: QuoteFlowRepository, navController: NavController) 
                         )
                     }
 
-                    repository.saveQuoteWithItems(
+                    val newQuoteId = repository.saveQuoteWithItems(
                         customerId = customerId,
                         notes = notes,
                         items = quoteItems
                     )
 
                     showBuilder = false
+                    navController.navigate(Routes.quoteDetails(newQuoteId))
                 }
             }
         )
     }
+}
+
+@Composable
+private fun StatusChip(status: String) {
+    AssistChip(
+        onClick = {},
+        label = { Text(status) }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -23,7 +23,10 @@ fun QuoteFlowApp(repository: QuoteFlowRepository) {
         startDestination = Routes.DASHBOARD
     ) {
         composable(Routes.DASHBOARD) {
-            DashboardScreen(navController)
+            DashboardScreen(
+                repository = repository,
+                navController = navController
+            )
         }
 
         composable(Routes.PRODUCTS) {

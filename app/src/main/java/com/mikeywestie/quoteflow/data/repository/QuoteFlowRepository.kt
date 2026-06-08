@@ -76,6 +76,33 @@ class QuoteFlowRepository(
         return quoteId
     }
 
+    suspend fun duplicateQuote(quoteId: Long): Long? {
+        val quote = quoteDao.getQuoteById(quoteId) ?: return null
+        val items = quoteDao.getQuoteItemsOnce(quoteId)
+
+        val newQuoteId = quoteDao.saveQuote(
+            quote.copy(
+                id = 0,
+                quoteNumber = nextQuoteNumber(),
+                status = "Draft",
+                createdAt = System.currentTimeMillis()
+            )
+        )
+
+        quoteDao.saveItems(
+            items.map { item ->
+                item.copy(
+                    id = 0,
+                    quoteId = newQuoteId
+                )
+            }
+        )
+
+        recalculateQuoteTotal(newQuoteId)
+
+        return newQuoteId
+    }
+
     suspend fun updateQuoteStatusAndNotes(
         quoteId: Long,
         status: String,
