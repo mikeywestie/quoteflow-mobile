@@ -5,4 +5,12 @@ object Routes {
     const val PRODUCTS = "products"
     const val CUSTOMERS = "customers"
     const val QUOTES = "quotes"
+    const val SETTINGS = "settings"
+
+    const val QUOTE_DETAILS = "quote-details"
+    const val QUOTE_ID_ARGUMENT = "quoteId"
+
+    fun quoteDetails(quoteId: Long): String {
+        return "$QUOTE_DETAILS/$quoteId"
+    }
 }

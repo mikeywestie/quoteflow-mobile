@@ -15,21 +15,46 @@ import com.mikeywestie.quoteflow.navigation.Routes
 fun DashboardScreen(navController: NavController) {
     Scaffold { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(24.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text("QuoteFlow", fontSize = 34.sp, fontWeight = FontWeight.Bold)
             Text("Mobile quotation builder", style = MaterialTheme.typography.bodyLarge)
+
             Spacer(Modifier.height(32.dp))
-            DashboardButton("New Quote / Saved Quotes") { navController.navigate(Routes.QUOTES) }
-            DashboardButton("Products") { navController.navigate(Routes.PRODUCTS) }
-            DashboardButton("Customers") { navController.navigate(Routes.CUSTOMERS) }
+
+            DashboardButton("New Quote / Saved Quotes") {
+                navController.navigate(Routes.QUOTES)
+            }
+
+            DashboardButton("Products") {
+                navController.navigate(Routes.PRODUCTS)
+            }
+
+            DashboardButton("Customers") {
+                navController.navigate(Routes.CUSTOMERS)
+            }
+
+            DashboardButton("Settings") {
+                navController.navigate(Routes.SETTINGS)
+            }
         }
     }
 }
 
 @Composable
 private fun DashboardButton(text: String, onClick: () -> Unit) {
-    Button(onClick = onClick, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).height(56.dp)) { Text(text) }
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .height(56.dp)
+    ) {
+        Text(text)
+    }
 }
