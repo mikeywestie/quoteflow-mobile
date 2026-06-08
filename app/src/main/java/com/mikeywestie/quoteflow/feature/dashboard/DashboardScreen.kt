@@ -78,6 +78,10 @@ fun DashboardScreen(
                 DashboardButton("Settings") {
                     navController.navigate(Routes.SETTINGS)
                 }
+
+                DashboardButton("Import Data") {
+                    navController.navigate(Routes.IMPORT_DATA)
+                }
             }
 
             item {

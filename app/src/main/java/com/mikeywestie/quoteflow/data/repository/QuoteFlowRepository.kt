@@ -150,4 +150,26 @@ class QuoteFlowRepository(
     suspend fun saveCompanySettings(settings: CompanySettings) {
         companySettingsDao.save(settings)
     }
+
+    suspend fun importProducts(products: List<Product>): Int {
+        val existingProducts = productDao.getAllProductsOnce()
+
+        products.forEach { imported ->
+            val existing = existingProducts.firstOrNull { existing ->
+                imported.sku.isNotBlank() && existing.sku.equals(imported.sku, ignoreCase = true)
+            } ?: existingProducts.firstOrNull { existing ->
+                existing.name.equals(imported.name, ignoreCase = true)
+            }
+
+            productDao.save(
+                if (existing != null) {
+                    imported.copy(id = existing.id)
+                } else {
+                    imported
+                }
+            )
+        }
+
+        return products.size
+    }
 }

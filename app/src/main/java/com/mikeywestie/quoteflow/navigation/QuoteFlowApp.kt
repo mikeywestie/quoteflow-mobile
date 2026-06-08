@@ -9,6 +9,7 @@ import androidx.navigation.navArgument
 import com.mikeywestie.quoteflow.data.repository.QuoteFlowRepository
 import com.mikeywestie.quoteflow.feature.customers.CustomersScreen
 import com.mikeywestie.quoteflow.feature.dashboard.DashboardScreen
+import com.mikeywestie.quoteflow.feature.importdata.ImportScreen
 import com.mikeywestie.quoteflow.feature.products.ProductsScreen
 import com.mikeywestie.quoteflow.feature.quotes.QuoteDetailsScreen
 import com.mikeywestie.quoteflow.feature.quotes.QuotesScreen
@@ -23,10 +24,7 @@ fun QuoteFlowApp(repository: QuoteFlowRepository) {
         startDestination = Routes.DASHBOARD
     ) {
         composable(Routes.DASHBOARD) {
-            DashboardScreen(
-                repository = repository,
-                navController = navController
-            )
+            DashboardScreen(repository, navController)
         }
 
         composable(Routes.PRODUCTS) {
@@ -42,10 +40,11 @@ fun QuoteFlowApp(repository: QuoteFlowRepository) {
         }
 
         composable(Routes.SETTINGS) {
-            SettingsScreen(
-                repository = repository,
-                navController = navController
-            )
+            SettingsScreen(repository, navController)
+        }
+
+        composable(Routes.IMPORT_DATA) {
+            ImportScreen(repository, navController)
         }
 
         composable(
