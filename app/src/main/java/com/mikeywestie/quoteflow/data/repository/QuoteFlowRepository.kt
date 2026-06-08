@@ -24,9 +24,14 @@ class QuoteFlowRepository(
     private val quoteTemplateDao: QuoteTemplateDao,
     private val templateItemDao: TemplateItemDao
 ) {
-    fun products(query: String): Flow<List<Product>> = productDao.searchProducts(query)
-    suspend fun saveProduct(product: Product) = productDao.save(product)
-    suspend fun deleteProduct(product: Product) = productDao.delete(product)
+    fun products(query: String): Flow<List<Product>> =
+        productDao.searchProducts(query)
+
+    suspend fun saveProduct(product: Product) =
+        productDao.save(product)
+
+    suspend fun deleteProduct(product: Product) =
+        productDao.delete(product)
 
     suspend fun importProducts(products: List<Product>): Int {
         val existingProducts = productDao.getAllProductsOnce()
@@ -38,18 +43,32 @@ class QuoteFlowRepository(
                 existing.name.equals(imported.name, ignoreCase = true)
             }
 
-            productDao.save(if (existing != null) imported.copy(id = existing.id) else imported)
+            productDao.save(
+                if (existing != null) {
+                    imported.copy(id = existing.id)
+                } else {
+                    imported
+                }
+            )
         }
 
         return products.size
     }
 
-    fun customers(query: String): Flow<List<Customer>> = customerDao.searchCustomers(query)
-    suspend fun saveCustomer(customer: Customer) = customerDao.save(customer)
-    suspend fun deleteCustomer(customer: Customer) = customerDao.delete(customer)
+    fun customers(query: String): Flow<List<Customer>> =
+        customerDao.searchCustomers(query)
 
-    fun quotes(): Flow<List<Quote>> = quoteDao.getQuotes()
-    fun quoteItems(quoteId: Long): Flow<List<QuoteItem>> = quoteDao.getQuoteItems(quoteId)
+    suspend fun saveCustomer(customer: Customer) =
+        customerDao.save(customer)
+
+    suspend fun deleteCustomer(customer: Customer) =
+        customerDao.delete(customer)
+
+    fun quotes(): Flow<List<Quote>> =
+        quoteDao.getQuotes()
+
+    fun quoteItems(quoteId: Long): Flow<List<QuoteItem>> =
+        quoteDao.getQuoteItems(quoteId)
 
     suspend fun createDraftQuote(customerId: Long): Long {
         return quoteDao.saveQuote(
@@ -76,7 +95,11 @@ class QuoteFlowRepository(
             )
         )
 
-        quoteDao.saveItems(items.map { it.copy(id = 0, quoteId = quoteId) })
+        quoteDao.saveItems(
+            items.map { item ->
+                item.copy(id = 0, quoteId = quoteId)
+            }
+        )
 
         return quoteId
     }
@@ -94,7 +117,15 @@ class QuoteFlowRepository(
             )
         )
 
-        quoteDao.saveItems(items.map { it.copy(id = 0, quoteId = newQuoteId) })
+        quoteDao.saveItems(
+            items.map { item ->
+                item.copy(
+                    id = 0,
+                    quoteId = newQuoteId
+                )
+            }
+        )
+
         recalculateQuoteTotal(newQuoteId)
 
         return newQuoteId
@@ -157,7 +188,9 @@ class QuoteFlowRepository(
         val items = quoteDao.getQuoteItemsOnce(quoteId)
         val total = items.sumOf { it.lineTotal }
 
-        quoteDao.saveQuote(quote.copy(totalAmount = total))
+        quoteDao.saveQuote(
+            quote.copy(totalAmount = total)
+        )
     }
 
     private suspend fun nextQuoteNumber(): String {
@@ -165,13 +198,23 @@ class QuoteFlowRepository(
         return "QF-${Year.now().value}-${next.toString().padStart(5, '0')}"
     }
 
-    fun companySettings(): Flow<CompanySettings?> = companySettingsDao.getSettings()
+    fun companySettings(): Flow<CompanySettings?> =
+        companySettingsDao.getSettings()
 
     suspend fun saveCompanySettings(settings: CompanySettings) {
         companySettingsDao.save(settings)
     }
 
-    fun templates(): Flow<List<QuoteTemplate>> = quoteTemplateDao.getTemplates()
+    fun templates(): Flow<List<QuoteTemplate>> =
+        quoteTemplateDao.getTemplates()
+
+    suspend fun saveTemplate(template: QuoteTemplate): Long =
+        quoteTemplateDao.save(template)
+
+    suspend fun deleteTemplate(template: QuoteTemplate) {
+        templateItemDao.deleteItemsForTemplate(template.id)
+        quoteTemplateDao.delete(template)
+    }
 
     suspend fun importTemplates(templates: List<QuoteTemplate>): Int {
         quoteTemplateDao.saveAll(templates)
@@ -214,7 +257,8 @@ class QuoteFlowRepository(
         )
 
         val quoteItems = templateItems.mapNotNull { templateItem ->
-            val product = productDao.getProductById(templateItem.productId) ?: return@mapNotNull null
+            val product = productDao.getProductById(templateItem.productId)
+                ?: return@mapNotNull null
 
             QuoteItem(
                 quoteId = quoteId,

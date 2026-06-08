@@ -1,5 +1,6 @@
 package com.mikeywestie.quoteflow.feature.templates
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -7,13 +8,16 @@ import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.mikeywestie.quoteflow.data.local.entity.Product
+import com.mikeywestie.quoteflow.data.local.entity.QuoteTemplate
 import com.mikeywestie.quoteflow.data.local.entity.TemplateItem
 import com.mikeywestie.quoteflow.data.repository.QuoteFlowRepository
+import com.mikeywestie.quoteflow.navigation.Routes
 import com.mikeywestie.quoteflow.util.toRand
 import kotlinx.coroutines.launch
 
@@ -23,11 +27,15 @@ fun TemplatesScreen(
     repository: QuoteFlowRepository,
     navController: NavController
 ) {
-    val templates = repository.templates().collectAsStateWithLifecycle(initialValue = emptyList())
-    val products = repository.products("").collectAsStateWithLifecycle(initialValue = emptyList())
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    val templates = repository.templates().collectAsStateWithLifecycle(initialValue = emptyList())
+    val products = repository.products("").collectAsStateWithLifecycle(initialValue = emptyList())
+
     var expandedTemplateId by remember { mutableStateOf<Long?>(null) }
+    var showTemplateDialog by remember { mutableStateOf(false) }
+    var editingTemplate by remember { mutableStateOf<QuoteTemplate?>(null) }
 
     Scaffold(
         topBar = {
@@ -37,8 +45,28 @@ fun TemplatesScreen(
                     TextButton(onClick = { navController.popBackStack() }) {
                         Text("Back")
                     }
+                },
+                actions = {
+                    TextButton(
+                        onClick = {
+                            editingTemplate = null
+                            showTemplateDialog = true
+                        }
+                    ) {
+                        Text("+ Add")
+                    }
                 }
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = {
+                    editingTemplate = null
+                    showTemplateDialog = true
+                }
+            ) {
+                Text("+")
+            }
         }
     ) { padding ->
         LazyColumn(
@@ -55,7 +83,7 @@ fun TemplatesScreen(
                 )
 
                 Text(
-                    text = "Build reusable quote packages by attaching products and quantities to templates."
+                    text = "Create, edit and build reusable quote packages."
                 )
             }
 
@@ -63,8 +91,8 @@ fun TemplatesScreen(
                 item {
                     Card(Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp)) {
-                            Text("No templates imported yet.", fontWeight = FontWeight.Bold)
-                            Text("Go to Import Data and import quoteflow_templates_import.csv.")
+                            Text("No templates yet.", fontWeight = FontWeight.Bold)
+                            Text("Tap + Add to create one, or import templates from Import Data.")
                         }
                     }
                 }
@@ -87,6 +115,16 @@ fun TemplatesScreen(
                                 Text(template.description)
                             }
 
+                            if (template.exampleQuotes.isNotBlank()) {
+                                Spacer(Modifier.height(6.dp))
+                                Text("Examples: ${template.exampleQuotes}")
+                            }
+
+                            if (template.confidence.isNotBlank()) {
+                                Spacer(Modifier.height(6.dp))
+                                Text("Confidence: ${template.confidence}")
+                            }
+
                             Spacer(Modifier.height(8.dp))
 
                             Text(
@@ -97,17 +135,20 @@ fun TemplatesScreen(
                             Spacer(Modifier.height(8.dp))
 
                             Button(
+                                enabled = templateItems.value.isNotEmpty(),
                                 onClick = {
                                     scope.launch {
-
-                                        val quoteId =
-                                            repository.createQuoteFromTemplate(
-                                                templateId = template.id
-                                            )
-
-                                        navController.navigate(
-                                            "quote-details/$quoteId"
+                                        val quoteId = repository.createQuoteFromTemplate(
+                                            templateId = template.id
                                         )
+
+                                        Toast.makeText(
+                                            context,
+                                            "Quote created from template",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+
+                                        navController.navigate(Routes.quoteDetails(quoteId))
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth()
@@ -130,6 +171,35 @@ fun TemplatesScreen(
                                         }
                                     )
                                 }
+
+                                TextButton(
+                                    onClick = {
+                                        editingTemplate = template
+                                        showTemplateDialog = true
+                                    }
+                                ) {
+                                    Text("Edit")
+                                }
+
+                                TextButton(
+                                    onClick = {
+                                        scope.launch {
+                                            repository.deleteTemplate(template)
+
+                                            if (expandedTemplateId == template.id) {
+                                                expandedTemplateId = null
+                                            }
+
+                                            Toast.makeText(
+                                                context,
+                                                "Template deleted",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    }
+                                ) {
+                                    Text("Delete")
+                                }
                             }
 
                             if (expandedTemplateId == template.id) {
@@ -137,7 +207,6 @@ fun TemplatesScreen(
                                 Spacer(Modifier.height(8.dp))
 
                                 TemplateBuilderSection(
-                                    repository = repository,
                                     templateId = template.id,
                                     products = products.value,
                                     templateItems = templateItems.value,
@@ -163,12 +232,131 @@ fun TemplatesScreen(
             }
         }
     }
+
+    if (showTemplateDialog) {
+        TemplateDialog(
+            template = editingTemplate,
+            onDismiss = {
+                showTemplateDialog = false
+                editingTemplate = null
+            },
+            onSave = { template ->
+                scope.launch {
+                    repository.saveTemplate(template)
+                    showTemplateDialog = false
+                    editingTemplate = null
+
+                    Toast.makeText(
+                        context,
+                        "Template saved",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun TemplateDialog(
+    template: QuoteTemplate?,
+    onDismiss: () -> Unit,
+    onSave: (QuoteTemplate) -> Unit
+) {
+    var templateName by remember(template?.id) { mutableStateOf(template?.templateName ?: "") }
+    var category by remember(template?.id) { mutableStateOf(template?.category ?: "General") }
+    var description by remember(template?.id) { mutableStateOf(template?.description ?: "") }
+    var exampleQuotes by remember(template?.id) { mutableStateOf(template?.exampleQuotes ?: "") }
+    var confidence by remember(template?.id) { mutableStateOf(template?.confidence ?: "") }
+    var enabled by remember(template?.id) { mutableStateOf(template?.enabled ?: true) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(if (template == null) "Add Template" else "Edit Template")
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = templateName,
+                    onValueChange = { templateName = it },
+                    label = { Text("Template Name") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = category,
+                    onValueChange = { category = it },
+                    label = { Text("Category") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2
+                )
+
+                OutlinedTextField(
+                    value = exampleQuotes,
+                    onValueChange = { exampleQuotes = it },
+                    label = { Text("Example Quotes") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = confidence,
+                    onValueChange = { confidence = it },
+                    label = { Text("Confidence") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Enabled")
+                    Switch(
+                        checked = enabled,
+                        onCheckedChange = { enabled = it }
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = templateName.isNotBlank(),
+                onClick = {
+                    onSave(
+                        QuoteTemplate(
+                            id = template?.id ?: 0,
+                            templateName = templateName.trim(),
+                            category = category.trim().ifBlank { "General" },
+                            description = description.trim(),
+                            exampleQuotes = exampleQuotes.trim(),
+                            confidence = confidence.trim(),
+                            enabled = enabled,
+                            createdAt = template?.createdAt ?: System.currentTimeMillis()
+                        )
+                    )
+                }
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TemplateBuilderSection(
-    repository: QuoteFlowRepository,
     templateId: Long,
     products: List<Product>,
     templateItems: List<TemplateItem>,

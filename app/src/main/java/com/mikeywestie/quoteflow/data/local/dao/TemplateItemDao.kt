@@ -13,9 +13,7 @@ interface TemplateItemDao {
         WHERE templateId = :templateId
         ORDER BY id
     """)
-    fun getTemplateItems(
-        templateId: Long
-    ): Flow<List<TemplateItem>>
+    fun getTemplateItems(templateId: Long): Flow<List<TemplateItem>>
 
     @Query("""
         SELECT *
@@ -23,17 +21,14 @@ interface TemplateItemDao {
         WHERE templateId = :templateId
         ORDER BY id
     """)
-    suspend fun getTemplateItemsOnce(
-        templateId: Long
-    ): List<TemplateItem>
+    suspend fun getTemplateItemsOnce(templateId: Long): List<TemplateItem>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun save(
-        item: TemplateItem
-    ): Long
+    suspend fun save(item: TemplateItem): Long
 
     @Delete
-    suspend fun delete(
-        item: TemplateItem
-    )
+    suspend fun delete(item: TemplateItem)
+
+    @Query("DELETE FROM template_items WHERE templateId = :templateId")
+    suspend fun deleteItemsForTemplate(templateId: Long)
 }
