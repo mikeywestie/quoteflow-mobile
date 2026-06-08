@@ -207,4 +207,43 @@ class QuoteFlowRepository(
     suspend fun deleteTemplateItem(item: TemplateItem) {
         templateItemDao.delete(item)
     }
+
+    suspend fun createQuoteFromTemplate(
+        templateId: Long,
+        customerId: Long = 1
+    ): Long {
+
+        val templateItems =
+            templateItemDao.getTemplateItemsOnce(templateId)
+
+        val quoteId = quoteDao.saveQuote(
+            Quote(
+                quoteNumber = nextQuoteNumber(),
+                customerId = customerId,
+                status = "Draft"
+            )
+        )
+
+        val quoteItems = templateItems.mapNotNull { templateItem ->
+
+            val product =
+                productDao.getProductById(templateItem.productId)
+                    ?: return@mapNotNull null
+
+            QuoteItem(
+                quoteId = quoteId,
+                productId = product.id,
+                itemName = product.name,
+                quantity = templateItem.quantity,
+                unitPrice = product.unitPrice,
+                lineTotal = product.unitPrice * templateItem.quantity
+            )
+        }
+
+        quoteDao.saveItems(quoteItems)
+
+        recalculateQuoteTotal(quoteId)
+
+        return quoteId
+    }
 }

@@ -94,6 +94,27 @@ fun TemplatesScreen(
                                 fontWeight = FontWeight.SemiBold
                             )
 
+                            Spacer(Modifier.height(8.dp))
+
+                            Button(
+                                onClick = {
+                                    scope.launch {
+
+                                        val quoteId =
+                                            repository.createQuoteFromTemplate(
+                                                templateId = template.id
+                                            )
+
+                                        navController.navigate(
+                                            "quote-details/$quoteId"
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Create Quote")
+                            }
+
                             Row {
                                 TextButton(
                                     onClick = {

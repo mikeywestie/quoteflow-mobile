@@ -17,4 +17,7 @@ interface ProductDao {
 
     @Delete
     suspend fun delete(product: Product)
+
+    @Query("SELECT * FROM products WHERE id = :productId LIMIT 1")
+    suspend fun getProductById(productId: Long): Product?
 }
