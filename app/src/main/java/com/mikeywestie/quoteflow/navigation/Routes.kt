@@ -7,6 +7,7 @@ object Routes {
     const val QUOTES = "quotes"
     const val SETTINGS = "settings"
     const val IMPORT_DATA = "import-data"
+    const val TEMPLATES = "templates"
 
     const val QUOTE_DETAILS = "quote-details"
     const val QUOTE_ID_ARGUMENT = "quoteId"

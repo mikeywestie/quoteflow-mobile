@@ -23,6 +23,7 @@ fun DashboardScreen(
     val products = repository.products("").collectAsStateWithLifecycle(initialValue = emptyList())
     val customers = repository.customers("").collectAsStateWithLifecycle(initialValue = emptyList())
     val quotes = repository.quotes().collectAsStateWithLifecycle(initialValue = emptyList())
+    val templates = repository.templates().collectAsStateWithLifecycle(initialValue = emptyList())
 
     Scaffold { padding ->
         LazyColumn(
@@ -42,29 +43,27 @@ fun DashboardScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    DashboardMetricCard(
-                        title = "Products",
-                        value = products.value.size.toString(),
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    DashboardMetricCard(
-                        title = "Customers",
-                        value = customers.value.size.toString(),
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    DashboardMetricCard(
-                        title = "Quotes",
-                        value = quotes.value.size.toString(),
-                        modifier = Modifier.weight(1f)
-                    )
+                    DashboardMetricCard("Products", products.value.size.toString(), Modifier.weight(1f))
+                    DashboardMetricCard("Customers", customers.value.size.toString(), Modifier.weight(1f))
+                    DashboardMetricCard("Quotes", quotes.value.size.toString(), Modifier.weight(1f))
                 }
+            }
+
+            item {
+                DashboardMetricCard(
+                    title = "Templates",
+                    value = templates.value.size.toString(),
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
             item {
                 DashboardButton("New Quote / Saved Quotes") {
                     navController.navigate(Routes.QUOTES)
+                }
+
+                DashboardButton("Templates") {
+                    navController.navigate(Routes.TEMPLATES)
                 }
 
                 DashboardButton("Products") {

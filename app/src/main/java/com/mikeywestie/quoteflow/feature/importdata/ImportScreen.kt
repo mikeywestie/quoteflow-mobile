@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.mikeywestie.quoteflow.data.local.entity.Product
+import com.mikeywestie.quoteflow.data.local.entity.QuoteTemplate
 import com.mikeywestie.quoteflow.data.repository.QuoteFlowRepository
 import kotlinx.coroutines.launch
 
@@ -51,7 +52,41 @@ fun ImportScreen(
                     Toast.LENGTH_LONG
                 ).show()
             } catch (ex: Exception) {
-                lastResult = "Import failed: ${ex.message}"
+                lastResult = "Product import failed: ${ex.message}"
+
+                Toast.makeText(
+                    context,
+                    lastResult,
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    val templateCsvPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+
+        scope.launch {
+            try {
+                val text = context.contentResolver.openInputStream(uri)
+                    ?.bufferedReader()
+                    ?.use { it.readText() }
+                    .orEmpty()
+
+                val templates = parseTemplatesCsv(text)
+                val importedCount = repository.importTemplates(templates)
+
+                lastResult = "Imported $importedCount templates successfully."
+
+                Toast.makeText(
+                    context,
+                    lastResult,
+                    Toast.LENGTH_LONG
+                ).show()
+            } catch (ex: Exception) {
+                lastResult = "Template import failed: ${ex.message}"
 
                 Toast.makeText(
                     context,
@@ -87,7 +122,7 @@ fun ImportScreen(
             )
 
             Text(
-                text = "Use this screen to preload QuoteFlow with N&S product catalogue data so the team does not start from scratch."
+                text = "Use this screen to preload QuoteFlow with N&S products and reusable quote templates."
             )
 
             Divider()
@@ -110,7 +145,8 @@ fun ImportScreen(
                             "text/comma-separated-values",
                             "application/csv",
                             "application/vnd.ms-excel",
-                            "application/octet-stream"
+                            "application/octet-stream",
+                            "*/*"
                         )
                     )
                 },
@@ -128,8 +164,26 @@ fun ImportScreen(
             )
 
             Text(
-                text = "Coming next: import reusable N&S quote templates for solar, backup power, DB work, batteries, inverters, rails and labour packages."
+                text = "Expected CSV columns:\ntemplateName, category, description, exampleQuotes, confidence, enabled"
             )
+
+            Button(
+                onClick = {
+                    templateCsvPicker.launch(
+                        arrayOf(
+                            "text/*",
+                            "text/comma-separated-values",
+                            "application/csv",
+                            "application/vnd.ms-excel",
+                            "application/octet-stream",
+                            "*/*"
+                        )
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Import Templates CSV")
+            }
 
             Divider()
 
@@ -177,9 +231,40 @@ private fun parseProductsCsv(csv: String): List<Product> {
                 unitPrice = 0.0,
                 unit = unit,
                 supplier = "N&S Import",
-                active = activeValue.equals("true", ignoreCase = true) ||
-                        activeValue.equals("yes", ignoreCase = true) ||
-                        activeValue == "1"
+                active = isTruthy(activeValue)
+            )
+        }
+}
+
+private fun parseTemplatesCsv(csv: String): List<QuoteTemplate> {
+    val lines = csv
+        .lines()
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+
+    if (lines.size <= 1) return emptyList()
+
+    return lines
+        .drop(1)
+        .mapNotNull { line ->
+            val columns = parseCsvLine(line)
+
+            val templateName = columns.getOrNull(0).orEmpty().trim()
+            val category = columns.getOrNull(1).orEmpty().trim().ifBlank { "General" }
+            val description = columns.getOrNull(2).orEmpty().trim()
+            val exampleQuotes = columns.getOrNull(3).orEmpty().trim()
+            val confidence = columns.getOrNull(4).orEmpty().trim()
+            val enabledValue = columns.getOrNull(5).orEmpty().trim()
+
+            if (templateName.isBlank()) return@mapNotNull null
+
+            QuoteTemplate(
+                templateName = templateName,
+                category = category,
+                description = description,
+                exampleQuotes = exampleQuotes,
+                confidence = confidence,
+                enabled = enabledValue.isBlank() || isTruthy(enabledValue)
             )
         }
 }
@@ -218,4 +303,11 @@ private fun parseCsvLine(line: String): List<String> {
     result.add(current.toString())
 
     return result
+}
+
+private fun isTruthy(value: String): Boolean {
+    return value.equals("true", ignoreCase = true) ||
+            value.equals("yes", ignoreCase = true) ||
+            value.equals("y", ignoreCase = true) ||
+            value == "1"
 }

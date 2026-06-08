@@ -14,6 +14,7 @@ import com.mikeywestie.quoteflow.feature.products.ProductsScreen
 import com.mikeywestie.quoteflow.feature.quotes.QuoteDetailsScreen
 import com.mikeywestie.quoteflow.feature.quotes.QuotesScreen
 import com.mikeywestie.quoteflow.feature.settings.SettingsScreen
+import com.mikeywestie.quoteflow.feature.templates.TemplatesScreen
 
 @Composable
 fun QuoteFlowApp(repository: QuoteFlowRepository) {
@@ -45,6 +46,10 @@ fun QuoteFlowApp(repository: QuoteFlowRepository) {
 
         composable(Routes.IMPORT_DATA) {
             ImportScreen(repository, navController)
+        }
+
+        composable(Routes.TEMPLATES) {
+            TemplatesScreen(repository, navController)
         }
 
         composable(
