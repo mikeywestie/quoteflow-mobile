@@ -8,11 +8,13 @@ import com.mikeywestie.quoteflow.data.local.dao.CompanySettingsDao
 import com.mikeywestie.quoteflow.data.local.dao.CustomerDao
 import com.mikeywestie.quoteflow.data.local.dao.ProductDao
 import com.mikeywestie.quoteflow.data.local.dao.QuoteDao
+import com.mikeywestie.quoteflow.data.local.dao.QuoteTemplateDao
 import com.mikeywestie.quoteflow.data.local.entity.CompanySettings
 import com.mikeywestie.quoteflow.data.local.entity.Customer
 import com.mikeywestie.quoteflow.data.local.entity.Product
 import com.mikeywestie.quoteflow.data.local.entity.Quote
 import com.mikeywestie.quoteflow.data.local.entity.QuoteItem
+import com.mikeywestie.quoteflow.data.local.entity.QuoteTemplate
 
 @Database(
     entities = [
@@ -20,9 +22,10 @@ import com.mikeywestie.quoteflow.data.local.entity.QuoteItem
         Customer::class,
         Quote::class,
         QuoteItem::class,
-        CompanySettings::class
+        CompanySettings::class,
+        QuoteTemplate::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class QuoteFlowDatabase : RoomDatabase() {
@@ -31,6 +34,7 @@ abstract class QuoteFlowDatabase : RoomDatabase() {
     abstract fun customerDao(): CustomerDao
     abstract fun quoteDao(): QuoteDao
     abstract fun companySettingsDao(): CompanySettingsDao
+    abstract fun quoteTemplateDao(): QuoteTemplateDao
 
     companion object {
         @Volatile

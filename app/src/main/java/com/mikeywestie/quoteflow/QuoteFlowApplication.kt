@@ -5,16 +5,18 @@ import com.mikeywestie.quoteflow.data.local.QuoteFlowDatabase
 import com.mikeywestie.quoteflow.data.repository.QuoteFlowRepository
 
 class QuoteFlowApplication : Application() {
+
     val database by lazy {
-        QuoteFlowDatabase.getDatabase(
-            this)
+        QuoteFlowDatabase.getDatabase(this)
     }
+
     val repository by lazy {
         QuoteFlowRepository(
             database.productDao(),
             database.customerDao(),
             database.quoteDao(),
-            database.companySettingsDao()
+            database.companySettingsDao(),
+            database.quoteTemplateDao()
         )
     }
 }

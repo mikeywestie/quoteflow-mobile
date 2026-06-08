@@ -4,11 +4,13 @@ import com.mikeywestie.quoteflow.data.local.dao.CompanySettingsDao
 import com.mikeywestie.quoteflow.data.local.dao.CustomerDao
 import com.mikeywestie.quoteflow.data.local.dao.ProductDao
 import com.mikeywestie.quoteflow.data.local.dao.QuoteDao
+import com.mikeywestie.quoteflow.data.local.dao.QuoteTemplateDao
 import com.mikeywestie.quoteflow.data.local.entity.CompanySettings
 import com.mikeywestie.quoteflow.data.local.entity.Customer
 import com.mikeywestie.quoteflow.data.local.entity.Product
 import com.mikeywestie.quoteflow.data.local.entity.Quote
 import com.mikeywestie.quoteflow.data.local.entity.QuoteItem
+import com.mikeywestie.quoteflow.data.local.entity.QuoteTemplate
 import kotlinx.coroutines.flow.Flow
 import java.time.Year
 
@@ -16,7 +18,8 @@ class QuoteFlowRepository(
     private val productDao: ProductDao,
     private val customerDao: CustomerDao,
     private val quoteDao: QuoteDao,
-    private val companySettingsDao: CompanySettingsDao
+    private val companySettingsDao: CompanySettingsDao,
+    private val quoteTemplateDao: QuoteTemplateDao
 ) {
     fun products(query: String): Flow<List<Product>> =
         productDao.searchProducts(query)
@@ -26,6 +29,28 @@ class QuoteFlowRepository(
 
     suspend fun deleteProduct(product: Product) =
         productDao.delete(product)
+
+    suspend fun importProducts(products: List<Product>): Int {
+        val existingProducts = productDao.getAllProductsOnce()
+
+        products.forEach { imported ->
+            val existing = existingProducts.firstOrNull { existing ->
+                imported.sku.isNotBlank() && existing.sku.equals(imported.sku, ignoreCase = true)
+            } ?: existingProducts.firstOrNull { existing ->
+                existing.name.equals(imported.name, ignoreCase = true)
+            }
+
+            productDao.save(
+                if (existing != null) {
+                    imported.copy(id = existing.id)
+                } else {
+                    imported
+                }
+            )
+        }
+
+        return products.size
+    }
 
     fun customers(query: String): Flow<List<Customer>> =
         customerDao.searchCustomers(query)
@@ -151,25 +176,11 @@ class QuoteFlowRepository(
         companySettingsDao.save(settings)
     }
 
-    suspend fun importProducts(products: List<Product>): Int {
-        val existingProducts = productDao.getAllProductsOnce()
+    fun templates(): Flow<List<QuoteTemplate>> =
+        quoteTemplateDao.getTemplates()
 
-        products.forEach { imported ->
-            val existing = existingProducts.firstOrNull { existing ->
-                imported.sku.isNotBlank() && existing.sku.equals(imported.sku, ignoreCase = true)
-            } ?: existingProducts.firstOrNull { existing ->
-                existing.name.equals(imported.name, ignoreCase = true)
-            }
-
-            productDao.save(
-                if (existing != null) {
-                    imported.copy(id = existing.id)
-                } else {
-                    imported
-                }
-            )
-        }
-
-        return products.size
+    suspend fun importTemplates(templates: List<QuoteTemplate>): Int {
+        quoteTemplateDao.saveAll(templates)
+        return templates.size
     }
 }
