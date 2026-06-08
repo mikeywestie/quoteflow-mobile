@@ -11,11 +11,21 @@ object QuotePdfGenerator {
 
     fun generateSimpleQuotePdf(
         context: Context,
+        companyName: String,
+        companyPhone: String,
+        companyEmail: String,
+        companyAddress: String,
+        vatNumber: String,
+        registrationNumber: String,
         quoteNumber: String,
+        status: String,
+        createdDate: String,
+        validUntilDate: String,
         customerName: String,
         customerPhone: String,
         customerEmail: String,
         items: List<String>,
+        notes: String,
         total: String
     ): File {
 
@@ -28,7 +38,6 @@ object QuotePdfGenerator {
         ).create()
 
         val page = pdfDocument.startPage(pageInfo)
-
         val canvas = page.canvas
 
         val titlePaint = Paint().apply {
@@ -36,93 +45,108 @@ object QuotePdfGenerator {
             isFakeBoldText = true
         }
 
+        val headingPaint = Paint().apply {
+            textSize = 15f
+            isFakeBoldText = true
+        }
+
         val textPaint = Paint().apply {
             textSize = 12f
         }
 
-        var y = 50
+        val smallPaint = Paint().apply {
+            textSize = 10f
+        }
 
-        canvas.drawText(
-            "QUOTEFLOW QUOTATION",
-            40f,
-            y.toFloat(),
-            titlePaint
-        )
+        var y = 45
 
-        y += 40
+        fun draw(
+            text: String,
+            paint: Paint = textPaint,
+            lineGap: Int = 18
+        ) {
+            if (text.isNotBlank()) {
+                canvas.drawText(
+                    text,
+                    40f,
+                    y.toFloat(),
+                    paint
+                )
+                y += lineGap
+            }
+        }
 
-        canvas.drawText(
-            quoteNumber,
-            40f,
-            y.toFloat(),
-            textPaint
-        )
+        fun divider() {
+            y += 8
 
-        y += 40
-
-        canvas.drawText(
-            "Customer:",
-            40f,
-            y.toFloat(),
-            titlePaint
-        )
-
-        y += 25
-
-        canvas.drawText(
-            customerName,
-            40f,
-            y.toFloat(),
-            textPaint
-        )
-
-        y += 20
-
-        canvas.drawText(
-            customerPhone,
-            40f,
-            y.toFloat(),
-            textPaint
-        )
-
-        y += 20
-
-        canvas.drawText(
-            customerEmail,
-            40f,
-            y.toFloat(),
-            textPaint
-        )
-
-        y += 40
-
-        canvas.drawText(
-            "Items",
-            40f,
-            y.toFloat(),
-            titlePaint
-        )
-
-        y += 25
-
-        items.forEach {
-            canvas.drawText(
-                it,
+            canvas.drawLine(
                 40f,
+                y.toFloat(),
+                555f,
                 y.toFloat(),
                 textPaint
             )
 
-            y += 20
+            y += 22
         }
 
-        y += 20
+        draw(
+            companyName.ifBlank { "QuoteFlow" }.uppercase(),
+            titlePaint,
+            28
+        )
 
-        canvas.drawText(
+        draw(companyPhone, smallPaint, 14)
+        draw(companyEmail, smallPaint, 14)
+        draw(companyAddress, smallPaint, 14)
+
+        if (vatNumber.isNotBlank()) {
+            draw("VAT: $vatNumber", smallPaint, 14)
+        }
+
+        if (registrationNumber.isNotBlank()) {
+            draw("Reg: $registrationNumber", smallPaint, 14)
+        }
+
+        divider()
+
+        draw("QUOTATION", headingPaint, 24)
+        draw("Quote Number: $quoteNumber")
+        draw("Status: $status")
+        draw("Date Issued: $createdDate")
+        draw("Valid Until: $validUntilDate")
+
+        divider()
+
+        draw("Customer", headingPaint, 22)
+        draw(customerName)
+        draw(customerPhone)
+        draw(customerEmail)
+
+        divider()
+
+        draw("Items", headingPaint, 22)
+
+        items.forEach {
+            draw(it)
+        }
+
+        divider()
+
+        if (notes.isNotBlank()) {
+            draw("Notes", headingPaint, 22)
+
+            notes.lines().forEach {
+                draw(it)
+            }
+
+            divider()
+        }
+
+        draw(
             "TOTAL: $total",
-            40f,
-            y.toFloat(),
-            titlePaint
+            titlePaint,
+            28
         )
 
         pdfDocument.finishPage(page)

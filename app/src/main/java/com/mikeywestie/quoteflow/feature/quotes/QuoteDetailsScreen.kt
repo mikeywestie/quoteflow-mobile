@@ -19,6 +19,10 @@ import com.mikeywestie.quoteflow.data.repository.QuoteFlowRepository
 import com.mikeywestie.quoteflow.pdf.QuotePdfGenerator
 import com.mikeywestie.quoteflow.util.toRand
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,16 +36,23 @@ fun QuoteDetailsScreen(
     val quotes = repository.quotes().collectAsStateWithLifecycle(initialValue = emptyList())
     val customers = repository.customers("").collectAsStateWithLifecycle(initialValue = emptyList())
     val quoteItems = repository.quoteItems(quoteId).collectAsStateWithLifecycle(initialValue = emptyList())
+    val companySettings = repository.companySettings().collectAsStateWithLifecycle(initialValue = null)
 
     val quote = quotes.value.firstOrNull { it.id == quoteId }
     val customer = customers.value.firstOrNull { it.id == quote?.customerId }
+    val settings = companySettings.value
+
+    fun formatDate(timestamp: Long): String {
+        return SimpleDateFormat("dd MMMM yyyy", Locale.getDefault()).format(Date(timestamp))
+    }
+
+    fun validUntil(timestamp: Long): String {
+        val thirtyDays = TimeUnit.DAYS.toMillis(30)
+        return formatDate(timestamp + thirtyDays)
+    }
 
     fun generatePdf(): File? {
         if (quote == null) return null
-
-        val customerName = customer?.customerName ?: "Unknown customer"
-        val customerPhone = customer?.phone.orEmpty()
-        val customerEmail = customer?.email.orEmpty()
 
         val itemLines = quoteItems.value.mapIndexed { index, item ->
             val itemNumber = (index + 1).toString().padStart(2, '0')
@@ -50,11 +61,21 @@ fun QuoteDetailsScreen(
 
         return QuotePdfGenerator.generateSimpleQuotePdf(
             context = context,
+            companyName = settings?.companyName.orEmpty(),
+            companyPhone = settings?.phone.orEmpty(),
+            companyEmail = settings?.email.orEmpty(),
+            companyAddress = settings?.address.orEmpty(),
+            vatNumber = settings?.vatNumber.orEmpty(),
+            registrationNumber = settings?.registrationNumber.orEmpty(),
             quoteNumber = quote.quoteNumber,
-            customerName = customerName,
-            customerPhone = customerPhone,
-            customerEmail = customerEmail,
+            status = quote.status,
+            createdDate = formatDate(quote.createdAt),
+            validUntilDate = validUntil(quote.createdAt),
+            customerName = customer?.customerName ?: "Unknown customer",
+            customerPhone = customer?.phone.orEmpty(),
+            customerEmail = customer?.email.orEmpty(),
             items = itemLines,
+            notes = quote.notes,
             total = quote.totalAmount.toRand()
         )
     }
@@ -86,33 +107,6 @@ fun QuoteDetailsScreen(
         }
     }
 
-    fun sharePdf(packageName: String? = null, chooserTitle: String = "Share Quote") {
-        val pdfFile = generatePdf() ?: return
-        val uri = getPdfUri(pdfFile)
-
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "application/pdf"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "Quote ${quote?.quoteNumber.orEmpty()}")
-            putExtra(Intent.EXTRA_TEXT, "Please find attached quote ${quote?.quoteNumber.orEmpty()}.")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-
-            if (packageName != null) {
-                setPackage(packageName)
-            }
-        }
-
-        try {
-            context.startActivity(Intent.createChooser(intent, chooserTitle))
-        } catch (ex: ActivityNotFoundException) {
-            Toast.makeText(
-                context,
-                "No app found to share this PDF.",
-                Toast.LENGTH_LONG
-            ).show()
-        }
-    }
-
     fun sharePdf() {
         val pdfFile = generatePdf() ?: return
         val uri = getPdfUri(pdfFile)
@@ -121,7 +115,10 @@ fun QuoteDetailsScreen(
             type = "application/pdf"
             putExtra(Intent.EXTRA_EMAIL, arrayOf(customer?.email.orEmpty()))
             putExtra(Intent.EXTRA_SUBJECT, "Quote ${quote?.quoteNumber.orEmpty()}")
-            putExtra(Intent.EXTRA_TEXT, "Good day,\n\nPlease find attached quote ${quote?.quoteNumber.orEmpty()}.\n\nKind regards")
+            putExtra(
+                Intent.EXTRA_TEXT,
+                "Good day,\n\nPlease find attached quote ${quote?.quoteNumber.orEmpty()}.\n\nKind regards"
+            )
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
@@ -131,7 +128,7 @@ fun QuoteDetailsScreen(
         } catch (ex: ActivityNotFoundException) {
             Toast.makeText(
                 context,
-                "No email app found.",
+                "No app found to share this PDF.",
                 Toast.LENGTH_LONG
             ).show()
         }
@@ -170,6 +167,10 @@ fun QuoteDetailsScreen(
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
                     )
+
+                    Text("Status: ${quote.status}")
+                    Text("Date Issued: ${formatDate(quote.createdAt)}")
+                    Text("Valid Until: ${validUntil(quote.createdAt)}")
                 }
 
                 item {
@@ -201,6 +202,14 @@ fun QuoteDetailsScreen(
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
+                    }
+                }
+
+                if (quote.notes.isNotBlank()) {
+                    item {
+                        Text("Notes", fontWeight = FontWeight.Bold)
+                        Divider()
+                        Text(quote.notes)
                     }
                 }
 
