@@ -16,7 +16,8 @@ class QuoteFlowApplication : Application() {
             database.customerDao(),
             database.quoteDao(),
             database.companySettingsDao(),
-            database.quoteTemplateDao()
+            database.quoteTemplateDao(),
+            database.templateItemDao()
         )
     }
 }

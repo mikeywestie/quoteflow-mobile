@@ -15,6 +15,8 @@ import com.mikeywestie.quoteflow.data.local.entity.Product
 import com.mikeywestie.quoteflow.data.local.entity.Quote
 import com.mikeywestie.quoteflow.data.local.entity.QuoteItem
 import com.mikeywestie.quoteflow.data.local.entity.QuoteTemplate
+import com.mikeywestie.quoteflow.data.local.dao.TemplateItemDao
+import com.mikeywestie.quoteflow.data.local.entity.TemplateItem
 
 @Database(
     entities = [
@@ -23,9 +25,10 @@ import com.mikeywestie.quoteflow.data.local.entity.QuoteTemplate
         Quote::class,
         QuoteItem::class,
         CompanySettings::class,
-        QuoteTemplate::class
+        QuoteTemplate::class,
+        TemplateItem::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class QuoteFlowDatabase : RoomDatabase() {
@@ -35,6 +38,7 @@ abstract class QuoteFlowDatabase : RoomDatabase() {
     abstract fun quoteDao(): QuoteDao
     abstract fun companySettingsDao(): CompanySettingsDao
     abstract fun quoteTemplateDao(): QuoteTemplateDao
+    abstract fun templateItemDao(): TemplateItemDao
 
     companion object {
         @Volatile
