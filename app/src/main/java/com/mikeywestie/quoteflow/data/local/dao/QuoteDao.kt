@@ -13,9 +13,18 @@ interface QuoteDao {
     @Query("SELECT COUNT(*) FROM quotes")
     suspend fun countQuotes(): Int
 
+    @Query("SELECT * FROM quote_items WHERE quoteId = :quoteId ORDER BY id")
+    fun getQuoteItems(quoteId: Long): Flow<List<QuoteItem>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveQuote(quote: Quote): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveItem(item: QuoteItem): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun saveItems(items: List<QuoteItem>)
+
+    @Query("DELETE FROM quote_items WHERE quoteId = :quoteId")
+    suspend fun deleteItemsForQuote(quoteId: Long)
 }
