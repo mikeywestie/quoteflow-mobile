@@ -170,103 +170,64 @@ fun QuoteDetailsScreen(
                 modifier = Modifier
                     .padding(padding)
                     .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 item {
-                    Text(
-                        text = quote.quoteNumber,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
+                    QuoteHeaderCard(
+                        quoteNumber = quote.quoteNumber,
+                        status = quote.status,
+                        createdDate = formatDate(quote.createdAt),
+                        validUntilDate = validUntil(quote.createdAt)
                     )
-                    Text("Status: ${quote.status}")
-                    Text("Date Issued: ${formatDate(quote.createdAt)}")
-                    Text("Valid Until: ${validUntil(quote.createdAt)}")
                 }
 
                 item {
-                    Text("Customer", fontWeight = FontWeight.Bold)
-                    Divider()
-                    Text(customer?.customerName ?: "Unknown customer")
-                    if (!customer?.phone.isNullOrBlank()) Text(customer?.phone.orEmpty())
-                    if (!customer?.email.isNullOrBlank()) Text(customer?.email.orEmpty())
+                    CustomerSummaryCard(customer)
                 }
 
                 item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Items", fontWeight = FontWeight.Bold)
-                        TextButton(onClick = { showAddItemDialog = true }) {
-                            Text("+ Add Item")
-                        }
-                    }
-                    Divider()
+                    SectionHeader(
+                        title = "Items",
+                        actionText = "+ Add Item",
+                        onAction = { showAddItemDialog = true }
+                    )
                 }
 
                 quoteItems.value.forEachIndexed { index, item ->
                     item {
-                        val itemNumber = (index + 1).toString().padStart(2, '0')
-
-                        Card(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(12.dp)) {
-                                Text(
-                                    text = "$itemNumber) ${item.quantity.cleanQuantity()} x ${item.itemName}",
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Text("Unit Price: ${item.unitPrice.toRand()}")
-                                Text("Line Total: ${item.lineTotal.toRand()}")
-
-                                Row {
-                                    TextButton(onClick = { editingItem = item }) {
-                                        Text("Edit Item")
-                                    }
-
-                                    TextButton(
-                                        onClick = {
-                                            scope.launch {
-                                                repository.deleteQuoteItem(item)
-                                                Toast.makeText(
-                                                    context,
-                                                    "Item removed",
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                            }
-                                        }
-                                    ) {
-                                        Text("Delete Item")
-                                    }
+                        QuoteItemCard(
+                            number = index + 1,
+                            item = item,
+                            onEdit = { editingItem = item },
+                            onDelete = {
+                                scope.launch {
+                                    repository.deleteQuoteItem(item)
+                                    Toast.makeText(
+                                        context,
+                                        "Item removed",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
                                 }
                             }
-                        }
+                        )
                     }
                 }
 
                 if (quote.notes.isNotBlank()) {
                     item {
-                        Text("Notes", fontWeight = FontWeight.Bold)
-                        Divider()
-                        Text(quote.notes)
+                        NotesCard(quote.notes)
                     }
                 }
 
                 item {
-                    Divider()
-                    Spacer(Modifier.height(8.dp))
-
-                    Text(
-                        text = "Total ${quote.totalAmount.toRand()}",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
+                    TotalCard(total = quote.totalAmount.toRand())
                 }
 
                 item {
-                    Spacer(Modifier.height(12.dp))
-
-                    Button(
-                        onClick = {
+                    QuoteActionButtons(
+                        onGeneratePdf = {
                             val pdfFile = generatePdf()
+
                             if (pdfFile != null) {
                                 Toast.makeText(
                                     context,
@@ -275,24 +236,9 @@ fun QuoteDetailsScreen(
                                 ).show()
                             }
                         },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Generate PDF")
-                    }
-
-                    OutlinedButton(
-                        onClick = { openPdf() },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Open PDF")
-                    }
-
-                    OutlinedButton(
-                        onClick = { sharePdf() },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Share")
-                    }
+                        onOpenPdf = { openPdf() },
+                        onSharePdf = { sharePdf() }
+                    )
                 }
             }
         }
@@ -350,6 +296,295 @@ fun QuoteDetailsScreen(
     }
 }
 
+@Composable
+private fun QuoteHeaderCard(
+    quoteNumber: String,
+    status: String,
+    createdDate: String,
+    validUntilDate: String
+) {
+    ElevatedCard(Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = quoteNumber,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Text(
+                        text = "Quotation",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                QuoteStatusChip(status)
+            }
+
+            HorizontalDivider()
+
+            InfoRow("Date issued", createdDate)
+            InfoRow("Valid until", validUntilDate)
+        }
+    }
+}
+
+@Composable
+private fun CustomerSummaryCard(customer: Customer?) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Text(
+                text = "Customer",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                text = customer?.customerName ?: "Unknown customer",
+                style = MaterialTheme.typography.bodyLarge
+            )
+
+            if (!customer?.phone.isNullOrBlank()) {
+                Text(
+                    text = customer?.phone.orEmpty(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (!customer?.email.isNullOrBlank()) {
+                Text(
+                    text = customer?.email.orEmpty(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionHeader(
+    title: String,
+    actionText: String,
+    onAction: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+
+        TextButton(onClick = onAction) {
+            Text(actionText)
+        }
+    }
+}
+
+@Composable
+private fun QuoteItemCard(
+    number: Int,
+    item: QuoteItem,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Text(
+                text = "${number.toString().padStart(2, '0')}) ${item.quantity.cleanQuantity()} x ${item.itemName}",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            InfoRow("Unit Price", item.unitPrice.toRand())
+            InfoRow("Line Total", item.lineTotal.toRand(), emphasised = true)
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onEdit) {
+                    Text("Edit Item")
+                }
+
+                TextButton(onClick = onDelete) {
+                    Text("Delete Item")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NotesCard(notes: String) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Text(
+                text = "Notes",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                text = notes,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
+
+@Composable
+private fun TotalCard(total: String) {
+    ElevatedCard(Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = "Grand Total",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Text(
+                text = total,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuoteActionButtons(
+    onGeneratePdf: () -> Unit,
+    onOpenPdf: () -> Unit,
+    onSharePdf: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Button(
+            onClick = onGeneratePdf,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+        ) {
+            Text("Generate PDF")
+        }
+
+        OutlinedButton(
+            onClick = onOpenPdf,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+        ) {
+            Text("Open PDF")
+        }
+
+        OutlinedButton(
+            onClick = onSharePdf,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+        ) {
+            Text("Share")
+        }
+    }
+}
+
+@Composable
+private fun InfoRow(
+    label: String,
+    value: String,
+    emphasised: Boolean = false
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (emphasised) FontWeight.Bold else FontWeight.Normal,
+            color = if (emphasised) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            }
+        )
+    }
+}
+
+@Composable
+private fun QuoteStatusChip(status: String) {
+    val normalized = status.trim().lowercase()
+
+    val label = when (normalized) {
+        "draft" -> "DRAFT"
+        "sent" -> "SENT"
+        "accepted" -> "ACCEPTED"
+        "rejected" -> "REJECTED"
+        "paid" -> "PAID"
+        else -> status.uppercase()
+    }
+
+    val containerColor = when (normalized) {
+        "draft" -> MaterialTheme.colorScheme.surfaceVariant
+        "sent" -> MaterialTheme.colorScheme.primaryContainer
+        "accepted" -> MaterialTheme.colorScheme.tertiaryContainer
+        "rejected" -> MaterialTheme.colorScheme.errorContainer
+        "paid" -> MaterialTheme.colorScheme.secondaryContainer
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+
+    val labelColor = when (normalized) {
+        "draft" -> MaterialTheme.colorScheme.onSurfaceVariant
+        "sent" -> MaterialTheme.colorScheme.onPrimaryContainer
+        "accepted" -> MaterialTheme.colorScheme.onTertiaryContainer
+        "rejected" -> MaterialTheme.colorScheme.onErrorContainer
+        "paid" -> MaterialTheme.colorScheme.onSecondaryContainer
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    AssistChip(
+        onClick = {},
+        label = {
+            Text(
+                text = label,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = containerColor,
+            labelColor = labelColor
+        )
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditQuoteDialog(
@@ -376,7 +611,7 @@ private fun EditQuoteDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 500.dp)
+                    .heightIn(max = 360.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
@@ -480,7 +715,7 @@ private fun EditQuoteItemDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 500.dp)
+                    .heightIn(max = 360.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
@@ -558,7 +793,7 @@ private fun AddQuoteItemDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 500.dp)
+                    .heightIn(max = 360.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
@@ -628,7 +863,7 @@ private fun AddQuoteItemDialog(
                     }
                 }
 
-                Divider()
+                HorizontalDivider()
 
                 Text("Custom item", fontWeight = FontWeight.Bold)
 
@@ -668,7 +903,7 @@ private fun AddQuoteItemDialog(
                     Text("Add Custom Item")
                 }
 
-                Divider()
+                HorizontalDivider()
 
                 Text("Labour", fontWeight = FontWeight.Bold)
 
