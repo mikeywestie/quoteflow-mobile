@@ -3,6 +3,8 @@ package com.mikeywestie.quoteflow.feature.products
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
@@ -18,10 +20,14 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProductsScreen(repository: QuoteFlowRepository, navController: NavController) {
+fun ProductsScreen(
+    repository: QuoteFlowRepository,
+    navController: NavController
+) {
     var search by remember { mutableStateOf("") }
     var editing by remember { mutableStateOf<Product?>(null) }
     var showDialog by remember { mutableStateOf(false) }
+
     val products by repository.products(search).collectAsStateWithLifecycle(initialValue = emptyList())
     val scope = rememberCoroutineScope()
 
@@ -37,19 +43,37 @@ fun ProductsScreen(repository: QuoteFlowRepository, navController: NavController
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
-                editing = null
-                showDialog = true
-            }) {
+            FloatingActionButton(
+                onClick = {
+                    editing = null
+                    showDialog = true
+                },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
                 Text("+")
             }
         }
     ) { padding ->
         Column(
-            Modifier
+            modifier = Modifier
                 .padding(padding)
                 .padding(16.dp)
         ) {
+            Text(
+                text = "Product catalogue",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Text(
+                text = "${products.size} products available",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(Modifier.height(12.dp))
+
             OutlinedTextField(
                 value = search,
                 onValueChange = { search = it },
@@ -59,35 +83,20 @@ fun ProductsScreen(repository: QuoteFlowRepository, navController: NavController
 
             Spacer(Modifier.height(12.dp))
 
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(products) { product ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text(product.name, fontWeight = FontWeight.Bold)
-                            Text("${product.category} • ${product.unitPrice.toRand()} / ${product.unit}")
-
-                            if (product.sku.isNotBlank()) {
-                                Text("SKU: ${product.sku}")
-                            }
-
-                            Row {
-                                TextButton(onClick = {
-                                    editing = product
-                                    showDialog = true
-                                }) {
-                                    Text("Edit")
-                                }
-
-                                TextButton(onClick = {
-                                    scope.launch {
-                                        repository.deleteProduct(product)
-                                    }
-                                }) {
-                                    Text("Delete")
-                                }
+                    ProductCard(
+                        product = product,
+                        onEdit = {
+                            editing = product
+                            showDialog = true
+                        },
+                        onDelete = {
+                            scope.launch {
+                                repository.deleteProduct(product)
                             }
                         }
-                    }
+                    )
                 }
             }
         }
@@ -108,16 +117,78 @@ fun ProductsScreen(repository: QuoteFlowRepository, navController: NavController
 }
 
 @Composable
+private fun ProductCard(
+    product: Product,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = product.name,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            if (product.unitPrice <= 0.0) {
+                AssistChip(
+                    onClick = {},
+                    label = { Text("PRICE MISSING") },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        labelColor = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                )
+            } else {
+                Text(
+                    text = product.unitPrice.toRand(),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            Text(
+                text = "${product.category} • ${product.unit}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            if (product.sku.isNotBlank()) {
+                Text(
+                    text = "SKU: ${product.sku}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onEdit) {
+                    Text("Edit")
+                }
+
+                TextButton(onClick = onDelete) {
+                    Text("Delete")
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ProductDialog(
     product: Product?,
     onDismiss: () -> Unit,
     onSave: (Product) -> Unit
 ) {
-    var name by remember { mutableStateOf(product?.name ?: "") }
-    var sku by remember { mutableStateOf(product?.sku ?: "") }
-    var category by remember { mutableStateOf(product?.category ?: "General") }
-    var price by remember { mutableStateOf(product?.unitPrice?.toString() ?: "") }
-    var unit by remember { mutableStateOf(product?.unit ?: "Each") }
+    var name by remember(product?.id) { mutableStateOf(product?.name ?: "") }
+    var sku by remember(product?.id) { mutableStateOf(product?.sku ?: "") }
+    var category by remember(product?.id) { mutableStateOf(product?.category ?: "General") }
+    var price by remember(product?.id) { mutableStateOf(product?.unitPrice?.toString() ?: "") }
+    var unit by remember(product?.id) { mutableStateOf(product?.unit ?: "Each") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -125,25 +196,65 @@ private fun ProductDialog(
             Text(if (product == null) "Add Product" else "Edit Product")
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(name, { name = it }, label = { Text("Name") })
-                OutlinedTextField(sku, { sku = it }, label = { Text("SKU") })
-                OutlinedTextField(category, { category = it }, label = { Text("Category") })
-                OutlinedTextField(price, { price = it }, label = { Text("VAT inclusive price") })
-                OutlinedTextField(unit, { unit = it }, label = { Text("Unit") })
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 500.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Name") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = sku,
+                    onValueChange = { sku = it },
+                    label = { Text("SKU") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = category,
+                    onValueChange = { category = it },
+                    label = { Text("Category") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = price,
+                    onValueChange = { price = it },
+                    label = { Text("VAT inclusive price") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = unit,
+                    onValueChange = { unit = it },
+                    label = { Text("Unit") },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
             Button(
+                enabled = name.isNotBlank(),
                 onClick = {
                     onSave(
                         Product(
                             id = product?.id ?: 0,
-                            name = name,
-                            sku = sku,
-                            category = category,
+                            name = name.trim(),
+                            sku = sku.trim(),
+                            description = product?.description ?: "",
+                            category = category.trim().ifBlank { "General" },
                             unitPrice = price.toDoubleOrNull() ?: 0.0,
-                            unit = unit
+                            unit = unit.trim().ifBlank { "Each" },
+                            supplier = product?.supplier ?: "",
+                            active = product?.active ?: true,
+                            updatedAt = System.currentTimeMillis()
                         )
                     )
                 }

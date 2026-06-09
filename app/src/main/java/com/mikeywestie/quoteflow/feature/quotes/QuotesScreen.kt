@@ -21,7 +21,10 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QuotesScreen(repository: QuoteFlowRepository, navController: NavController) {
+fun QuotesScreen(
+    repository: QuoteFlowRepository,
+    navController: NavController
+) {
     val quotes by repository.quotes().collectAsStateWithLifecycle(initialValue = emptyList())
     val customers by repository.customers("").collectAsStateWithLifecycle(initialValue = emptyList())
     val products by repository.products("").collectAsStateWithLifecycle(initialValue = emptyList())
@@ -32,7 +35,7 @@ fun QuotesScreen(repository: QuoteFlowRepository, navController: NavController) 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Saved Quotes") },
+                title = { Text("Quotes") },
                 navigationIcon = {
                     TextButton(onClick = { navController.popBackStack() }) {
                         Text("Back")
@@ -41,64 +44,62 @@ fun QuotesScreen(repository: QuoteFlowRepository, navController: NavController) 
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showBuilder = true }) {
+            FloatingActionButton(
+                onClick = { showBuilder = true },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
                 Text("+")
             }
         }
     ) { padding ->
         Column(
-            Modifier
+            modifier = Modifier
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            Text("Create and manage on-site quotes", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = "Manage customer quotations",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Text(
+                text = "Create, duplicate and review saved quotes.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
             Spacer(Modifier.height(16.dp))
 
             if (quotes.isEmpty()) {
-                Text("No quotes yet. Tap + to create your first quote.")
-            }
+                EmptyQuotesCard()
+            } else {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(quotes) { quote ->
+                        val customerName = customers
+                            .firstOrNull { it.id == quote.customerId }
+                            ?.customerName
+                            ?: "Unknown customer"
 
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(quotes) { quote ->
-                    val customerName = customers
-                        .firstOrNull { it.id == quote.customerId }
-                        ?.customerName
-                        ?: "Unknown customer"
+                        QuoteListCard(
+                            quoteNumber = quote.quoteNumber,
+                            customerName = customerName,
+                            status = quote.status,
+                            total = quote.totalAmount.toRand(),
+                            onOpen = {
+                                navController.navigate(Routes.quoteDetails(quote.id))
+                            },
+                            onDuplicate = {
+                                scope.launch {
+                                    val newQuoteId = repository.duplicateQuote(quote.id)
 
-                    Card(
-                        onClick = {
-                            navController.navigate(Routes.quoteDetails(quote.id))
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(quote.quoteNumber, fontWeight = FontWeight.Bold)
-                                StatusChip(quote.status)
-                            }
-
-                            Spacer(Modifier.height(6.dp))
-
-                            Text(customerName)
-                            Text("Total: ${quote.totalAmount.toRand()}")
-
-                            TextButton(
-                                onClick = {
-                                    scope.launch {
-                                        val newQuoteId = repository.duplicateQuote(quote.id)
-                                        if (newQuoteId != null) {
-                                            navController.navigate(Routes.quoteDetails(newQuoteId))
-                                        }
+                                    if (newQuoteId != null) {
+                                        navController.navigate(Routes.quoteDetails(newQuoteId))
                                     }
                                 }
-                            ) {
-                                Text("Duplicate Quote")
                             }
-                        }
+                        )
                     }
                 }
             }
@@ -138,10 +139,127 @@ fun QuotesScreen(repository: QuoteFlowRepository, navController: NavController) 
 }
 
 @Composable
-private fun StatusChip(status: String) {
+private fun EmptyQuotesCard() {
+    Card(Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "No quotes yet",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                text = "Tap the + button to create your first quote.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuoteListCard(
+    quoteNumber: String,
+    customerName: String,
+    status: String,
+    total: String,
+    onOpen: () -> Unit,
+    onDuplicate: () -> Unit
+) {
+    Card(
+        onClick = onOpen,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = quoteNumber,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Text(
+                        text = customerName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                QuoteStatusChip(status)
+            }
+
+            Text(
+                text = total,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onDuplicate) {
+                    Text("Duplicate")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuoteStatusChip(status: String) {
+    val normalized = status.trim().lowercase()
+
+    val label = when (normalized) {
+        "draft" -> "DRAFT"
+        "sent" -> "SENT"
+        "accepted" -> "ACCEPTED"
+        "rejected" -> "REJECTED"
+        "paid" -> "PAID"
+        else -> status.uppercase()
+    }
+
+    val containerColor = when (normalized) {
+        "draft" -> MaterialTheme.colorScheme.surfaceVariant
+        "sent" -> MaterialTheme.colorScheme.primaryContainer
+        "accepted" -> MaterialTheme.colorScheme.tertiaryContainer
+        "rejected" -> MaterialTheme.colorScheme.errorContainer
+        "paid" -> MaterialTheme.colorScheme.secondaryContainer
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+
+    val labelColor = when (normalized) {
+        "draft" -> MaterialTheme.colorScheme.onSurfaceVariant
+        "sent" -> MaterialTheme.colorScheme.onPrimaryContainer
+        "accepted" -> MaterialTheme.colorScheme.onTertiaryContainer
+        "rejected" -> MaterialTheme.colorScheme.onErrorContainer
+        "paid" -> MaterialTheme.colorScheme.onSecondaryContainer
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
     AssistChip(
         onClick = {},
-        label = { Text(status) }
+        label = {
+            Text(
+                text = label,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = containerColor,
+            labelColor = labelColor
+        )
     )
 }
 
