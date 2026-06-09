@@ -4,6 +4,8 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
@@ -63,7 +65,9 @@ fun TemplatesScreen(
                 onClick = {
                     editingTemplate = null
                     showTemplateDialog = true
-                }
+                },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
                 Text("+")
             }
@@ -73,28 +77,25 @@ fun TemplatesScreen(
             modifier = Modifier
                 .padding(padding)
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
                 Text(
-                    text = "N&S Quote Templates",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    text = "Template library",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
                 )
 
                 Text(
-                    text = "Create, edit and build reusable quote packages."
+                    text = "${templates.value.size} reusable quote packages",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
             if (templates.value.isEmpty()) {
                 item {
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text("No templates yet.", fontWeight = FontWeight.Bold)
-                            Text("Tap + Add to create one, or import templates from Import Data.")
-                        }
-                    }
+                    EmptyTemplatesCard()
                 }
             } else {
                 items(templates.value) { template ->
@@ -102,132 +103,64 @@ fun TemplatesScreen(
                         .templateItems(template.id)
                         .collectAsStateWithLifecycle(initialValue = emptyList())
 
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text(template.templateName, fontWeight = FontWeight.Bold)
+                    TemplateCard(
+                        template = template,
+                        products = products.value,
+                        templateItems = templateItems.value,
+                        expanded = expandedTemplateId == template.id,
+                        onToggleBuilder = {
+                            expandedTemplateId =
+                                if (expandedTemplateId == template.id) null else template.id
+                        },
+                        onCreateQuote = {
+                            scope.launch {
+                                val quoteId = repository.createQuoteFromTemplate(
+                                    templateId = template.id
+                                )
 
-                            if (template.category.isNotBlank()) {
-                                Text("Category: ${template.category}")
+                                Toast.makeText(
+                                    context,
+                                    "Quote created from template",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+
+                                navController.navigate(Routes.quoteDetails(quoteId))
                             }
+                        },
+                        onEdit = {
+                            editingTemplate = template
+                            showTemplateDialog = true
+                        },
+                        onDelete = {
+                            scope.launch {
+                                repository.deleteTemplate(template)
 
-                            if (template.description.isNotBlank()) {
-                                Spacer(Modifier.height(6.dp))
-                                Text(template.description)
-                            }
-
-                            if (template.exampleQuotes.isNotBlank()) {
-                                Spacer(Modifier.height(6.dp))
-                                Text("Examples: ${template.exampleQuotes}")
-                            }
-
-                            if (template.confidence.isNotBlank()) {
-                                Spacer(Modifier.height(6.dp))
-                                Text("Confidence: ${template.confidence}")
-                            }
-
-                            Spacer(Modifier.height(8.dp))
-
-                            Text(
-                                text = "Products in template: ${templateItems.value.size}",
-                                fontWeight = FontWeight.SemiBold
-                            )
-
-                            Spacer(Modifier.height(8.dp))
-
-                            Button(
-                                enabled = templateItems.value.isNotEmpty(),
-                                onClick = {
-                                    scope.launch {
-                                        val quoteId = repository.createQuoteFromTemplate(
-                                            templateId = template.id
-                                        )
-
-                                        Toast.makeText(
-                                            context,
-                                            "Quote created from template",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-
-                                        navController.navigate(Routes.quoteDetails(quoteId))
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("Create Quote")
-                            }
-
-                            Row {
-                                TextButton(
-                                    onClick = {
-                                        expandedTemplateId =
-                                            if (expandedTemplateId == template.id) null else template.id
-                                    }
-                                ) {
-                                    Text(
-                                        if (expandedTemplateId == template.id) {
-                                            "Hide Builder"
-                                        } else {
-                                            "Build Template"
-                                        }
-                                    )
+                                if (expandedTemplateId == template.id) {
+                                    expandedTemplateId = null
                                 }
 
-                                TextButton(
-                                    onClick = {
-                                        editingTemplate = template
-                                        showTemplateDialog = true
-                                    }
-                                ) {
-                                    Text("Edit")
-                                }
-
-                                TextButton(
-                                    onClick = {
-                                        scope.launch {
-                                            repository.deleteTemplate(template)
-
-                                            if (expandedTemplateId == template.id) {
-                                                expandedTemplateId = null
-                                            }
-
-                                            Toast.makeText(
-                                                context,
-                                                "Template deleted",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
-                                    }
-                                ) {
-                                    Text("Delete")
-                                }
+                                Toast.makeText(
+                                    context,
+                                    "Template deleted",
+                                    Toast.LENGTH_SHORT
+                                ).show()
                             }
-
-                            if (expandedTemplateId == template.id) {
-                                Divider()
-                                Spacer(Modifier.height(8.dp))
-
-                                TemplateBuilderSection(
+                        },
+                        onAddProduct = { productId, quantity ->
+                            scope.launch {
+                                repository.addProductToTemplate(
                                     templateId = template.id,
-                                    products = products.value,
-                                    templateItems = templateItems.value,
-                                    onAddProduct = { productId, quantity ->
-                                        scope.launch {
-                                            repository.addProductToTemplate(
-                                                templateId = template.id,
-                                                productId = productId,
-                                                quantity = quantity
-                                            )
-                                        }
-                                    },
-                                    onDeleteItem = { item ->
-                                        scope.launch {
-                                            repository.deleteTemplateItem(item)
-                                        }
-                                    }
+                                    productId = productId,
+                                    quantity = quantity
                                 )
                             }
+                        },
+                        onDeleteItem = { item ->
+                            scope.launch {
+                                repository.deleteTemplateItem(item)
+                            }
                         }
-                    }
+                    )
                 }
             }
         }
@@ -258,6 +191,150 @@ fun TemplatesScreen(
 }
 
 @Composable
+private fun EmptyTemplatesCard() {
+    Card(Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "No templates yet",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                text = "Tap + Add to create one, or import templates from Import Data.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun TemplateCard(
+    template: QuoteTemplate,
+    products: List<Product>,
+    templateItems: List<TemplateItem>,
+    expanded: Boolean,
+    onToggleBuilder: () -> Unit,
+    onCreateQuote: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onAddProduct: (Long, Double) -> Unit,
+    onDeleteItem: (TemplateItem) -> Unit
+) {
+    val estimatedTotal = templateItems.sumOf { item ->
+        val product = products.firstOrNull { it.id == item.productId }
+        (product?.unitPrice ?: 0.0) * item.quantity
+    }
+
+    Card(Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = template.templateName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Text(
+                        text = "${template.category} • ${template.confidence.ifBlank { "No confidence set" }}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                TemplateCountChip(templateItems.size)
+            }
+
+            if (template.description.isNotBlank()) {
+                Text(
+                    text = template.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = "Estimated material total",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Text(
+                        text = estimatedTotal.toRand(),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Button(
+                enabled = templateItems.isNotEmpty(),
+                onClick = onCreateQuote,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Create Quote")
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onToggleBuilder) {
+                    Text(if (expanded) "Hide Builder" else "Build")
+                }
+
+                TextButton(onClick = onEdit) {
+                    Text("Edit")
+                }
+
+                TextButton(onClick = onDelete) {
+                    Text("Delete")
+                }
+            }
+
+            if (expanded) {
+                HorizontalDivider()
+
+                TemplateBuilderSection(
+                    templateId = template.id,
+                    products = products,
+                    templateItems = templateItems,
+                    onAddProduct = onAddProduct,
+                    onDeleteItem = onDeleteItem
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TemplateCountChip(count: Int) {
+    AssistChip(
+        onClick = {},
+        label = {
+            Text(
+                text = "$count products",
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    )
+}
+
+@Composable
 private fun TemplateDialog(
     template: QuoteTemplate?,
     onDismiss: () -> Unit,
@@ -276,7 +353,13 @@ private fun TemplateDialog(
             Text(if (template == null) "Add Template" else "Edit Template")
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 500.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 OutlinedTextField(
                     value = templateName,
                     onValueChange = { templateName = it },
@@ -370,106 +453,140 @@ private fun TemplateBuilderSection(
     var productExpanded by remember { mutableStateOf(false) }
     var quantityText by remember { mutableStateOf("1") }
 
-    Text("Add Product", fontWeight = FontWeight.Bold)
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            text = "Build template",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
 
-    if (products.isEmpty()) {
-        Text("No products available. Import or create products first.")
-    } else {
-        ExposedDropdownMenuBox(
-            expanded = productExpanded,
-            onExpandedChange = { productExpanded = !productExpanded }
-        ) {
+        if (products.isEmpty()) {
+            Text(
+                text = "No products available. Import or create products first.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            ExposedDropdownMenuBox(
+                expanded = productExpanded,
+                onExpandedChange = { productExpanded = !productExpanded }
+            ) {
+                OutlinedTextField(
+                    value = products.firstOrNull { it.id == selectedProductId }?.name ?: "",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Product") },
+                    modifier = Modifier
+                        .menuAnchor()
+                        .fillMaxWidth()
+                )
+
+                ExposedDropdownMenu(
+                    expanded = productExpanded,
+                    onDismissRequest = { productExpanded = false }
+                ) {
+                    products.forEach { product ->
+                        DropdownMenuItem(
+                            text = {
+                                Text("${product.name} - ${product.unitPrice.toRand()}")
+                            },
+                            onClick = {
+                                selectedProductId = product.id
+                                productExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+
             OutlinedTextField(
-                value = products.firstOrNull { it.id == selectedProductId }?.name ?: "",
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("Product") },
-                modifier = Modifier
-                    .menuAnchor()
-                    .fillMaxWidth()
+                value = quantityText,
+                onValueChange = { quantityText = it },
+                label = { Text("Quantity") },
+                modifier = Modifier.fillMaxWidth()
             )
 
-            ExposedDropdownMenu(
-                expanded = productExpanded,
-                onDismissRequest = { productExpanded = false }
+            Button(
+                onClick = {
+                    val productId = selectedProductId
+                    val quantity = quantityText.toDoubleOrNull() ?: 1.0
+
+                    if (productId != null && quantity > 0.0) {
+                        onAddProduct(productId, quantity)
+                        quantityText = "1"
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
             ) {
-                products.forEach { product ->
-                    DropdownMenuItem(
-                        text = {
-                            Text("${product.name} - ${product.unitPrice.toRand()}")
-                        },
-                        onClick = {
-                            selectedProductId = product.id
-                            productExpanded = false
-                        }
-                    )
-                }
+                Text("Add Product")
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+        HorizontalDivider()
 
-        OutlinedTextField(
-            value = quantityText,
-            onValueChange = { quantityText = it },
-            label = { Text("Quantity") },
-            modifier = Modifier.fillMaxWidth()
+        Text(
+            text = "Template products",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
         )
 
-        Spacer(Modifier.height(8.dp))
-
-        Button(
-            onClick = {
-                val productId = selectedProductId
-                val quantity = quantityText.toDoubleOrNull() ?: 1.0
-
-                if (productId != null && quantity > 0.0) {
-                    onAddProduct(productId, quantity)
-                    quantityText = "1"
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Add Product To Template")
+        if (templateItems.isEmpty()) {
+            Text(
+                text = "No products attached yet.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            templateItems.forEachIndexed { index, item ->
+                TemplateProductLine(
+                    number = index + 1,
+                    item = item,
+                    product = products.firstOrNull { it.id == item.productId },
+                    onDelete = { onDeleteItem(item) }
+                )
+            }
         }
     }
+}
 
-    Spacer(Modifier.height(12.dp))
-    Divider()
-    Spacer(Modifier.height(8.dp))
+@Composable
+private fun TemplateProductLine(
+    number: Int,
+    item: TemplateItem,
+    product: Product?,
+    onDelete: () -> Unit
+) {
+    val lineTotal = (product?.unitPrice ?: 0.0) * item.quantity
 
-    Text("Template Products", fontWeight = FontWeight.Bold)
+    Card(Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "$number. ${product?.name ?: "Unknown product"}",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
 
-    if (templateItems.isEmpty()) {
-        Text("No products attached to this template yet.")
-    } else {
-        templateItems.forEach { item ->
-            val product = products.firstOrNull { it.id == item.productId }
+            Text(
+                text = "Qty: ${item.quantity.cleanQuantity()}",
+                style = MaterialTheme.typography.bodyMedium
+            )
 
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-            ) {
-                Column(Modifier.padding(12.dp)) {
-                    Text(
-                        text = product?.name ?: "Unknown product",
-                        fontWeight = FontWeight.SemiBold
-                    )
+            Text(
+                text = "Unit Price: ${(product?.unitPrice ?: 0.0).toRand()}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
-                    Text("Quantity: ${item.quantity.cleanQuantity()}")
+            Text(
+                text = "Line Total: ${lineTotal.toRand()}",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
 
-                    if (product != null) {
-                        Text("Unit Price: ${product.unitPrice.toRand()}")
-                        Text("Estimated Line Total: ${(product.unitPrice * item.quantity).toRand()}")
-                    }
-
-                    TextButton(
-                        onClick = { onDeleteItem(item) }
-                    ) {
-                        Text("Remove")
-                    }
-                }
+            TextButton(onClick = onDelete) {
+                Text("Remove")
             }
         }
     }
