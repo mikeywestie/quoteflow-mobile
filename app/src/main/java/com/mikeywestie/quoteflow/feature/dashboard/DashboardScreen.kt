@@ -1,11 +1,14 @@
 package com.mikeywestie.quoteflow.feature.dashboard
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -23,6 +26,9 @@ fun DashboardScreen(
     val customers = repository.customers("").collectAsStateWithLifecycle(initialValue = emptyList())
     val quotes = repository.quotes().collectAsStateWithLifecycle(initialValue = emptyList())
     val templates = repository.templates().collectAsStateWithLifecycle(initialValue = emptyList())
+    val context = LocalContext.current
+    val bugReportUrl =
+        "https://github.com/mikeywestie/quoteflow-mobile/issues/new?labels=bug&title=Bug%20Report%3A%20"
 
     Scaffold { padding ->
         LazyColumn(
@@ -139,6 +145,21 @@ fun DashboardScreen(
                     subtitle = "Load products and quote templates from CSV files",
                     actionText = "Open Import",
                     onClick = { navController.navigate(Routes.IMPORT_DATA) }
+                )
+            }
+
+            item {
+                ActionCard(
+                    title = "Report a Bug",
+                    subtitle = "Found a problem or have a suggestion? Open a GitHub issue.",
+                    actionText = "Report Bug",
+                    onClick = {
+                        val intent = Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse(bugReportUrl)
+                        )
+                        context.startActivity(intent)
+                    }
                 )
             }
 
