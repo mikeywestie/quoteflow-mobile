@@ -116,13 +116,13 @@ fun ImportScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text(
-                text = "N&S Import Pipeline",
+                text = "Import Pipeline",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
 
             Text(
-                text = "Use this screen to preload QuoteFlow with N&S products and reusable quote templates."
+                text = "Use this screen to preload QuoteFlow with products and reusable quote templates."
             )
 
             Divider()
@@ -223,14 +223,14 @@ private fun parseProductsCsv(csv: String): List<Product> {
                 sku = sku,
                 name = name,
                 description = if (sourceAppearanceCount.isNotBlank()) {
-                    "Imported from N&S catalogue. Source appearances: $sourceAppearanceCount"
+                    "Imported from catalogue. Source appearances: $sourceAppearanceCount"
                 } else {
-                    "Imported from N&S catalogue."
+                    "Imported from catalogue."
                 },
                 category = category,
                 unitPrice = 0.0,
                 unit = unit,
-                supplier = "N&S Import",
+                supplier = "Import",
                 active = isTruthy(activeValue)
             )
         }

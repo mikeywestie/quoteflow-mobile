@@ -136,7 +136,7 @@ fun DashboardScreen(
             item {
                 ActionCard(
                     title = "Import Data",
-                    subtitle = "Load N&S products and quote templates from CSV files",
+                    subtitle = "Load products and quote templates from CSV files",
                     actionText = "Open Import",
                     onClick = { navController.navigate(Routes.IMPORT_DATA) }
                 )
@@ -199,7 +199,7 @@ private fun HeroCard() {
             )
 
             Text(
-                text = "N&S Services quotation workspace",
+                text = "Quotation workspace",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.SemiBold

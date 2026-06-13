@@ -17,12 +17,29 @@ android {
         versionName = "0.2"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("../quoteflow-release-key.jks")
+            storePassword = System.getenv("QUOTEFLOW_KEYSTORE_PASSWORD")
+            keyAlias = "quoteflow"
+            keyPassword = System.getenv("QUOTEFLOW_KEY_PASSWORD")
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+        }
+    }
+
     buildFeatures { compose = true }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
     kotlinOptions { jvmTarget = "17" }
 }
 
