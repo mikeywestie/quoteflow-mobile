@@ -4,6 +4,23 @@ QuoteFlow is a mobile-first quotation builder for field service businesses.
 
 Technicians can manage products, customers, and create VAT-inclusive quotations directly from an Android phone.
 
+## Status
+
+🚧 Active Development
+
+Current Focus:
+- Mobile quote creation
+- Customer management
+- Product management
+- PDF generation
+- Offline-first capabilities
+
+Planned:
+- Cloud synchronization
+- Team collaboration
+- Invoice management
+- Reporting dashboard
+
 ## Current MVP
 
 - Kotlin
